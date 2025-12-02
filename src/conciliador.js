@@ -2,6 +2,7 @@
 import fs from "fs";
 import path from "path";
 import * as XLSX from "xlsx";
+import pdfParse from "pdf-parse";
 import { fileURLToPath } from "url";
 import { openai } from "./openaiClient.js";
 
@@ -9,208 +10,355 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 /**
- * Lê um arquivo de texto (TXT/CSV) em UTF-8.
- * IMPORTANTE: por enquanto estamos usando TEXTO (txt/csv exportado)
- * em vez de PDF, pra não depender do pdf-parse que estava dando erro.
+ * Normaliza caminhos (aceita string ou array).
  */
-function lerArquivoTexto(caminho) {
-  console.log("📄 Lendo arquivo de texto:", caminho);
-  if (!fs.existsSync(caminho)) {
-    throw new Error(`Arquivo não encontrado: ${caminho}`);
-  }
-  return fs.readFileSync(caminho, "utf8");
+function normalizarCaminhos(caminhos) {
+  if (!caminhos) return [];
+  if (Array.isArray(caminhos)) return caminhos.filter(Boolean);
+  return [caminhos];
 }
 
 /**
- * caminhoExtrato      -> DOC1 (extrato bancário)
- * caminhoControle     -> DOC2 (controle interno)
- * caminhoDuplicatas   -> DOC3 (arquivo de duplicatas / contas a receber) OPCIONAL
- *
- * Mesmo se você não passar o terceiro arquivo, tudo continua funcionando.
+ * Lê um arquivo (PDF, Excel, TXT, CSV) e devolve TEXTO pronto pra IA.
  */
-export async function rodarConciliacao(
-  caminhoExtrato,
-  caminhoControle,
-  caminhoDuplicatas // pode ser undefined
-) {
-  console.log("🔄 Iniciando conciliação (versão texto, sem PDF)…");
+async function lerArquivoGenerico(caminho, label = "DOC") {
+  console.log(`📁 [GEN] Lendo ${label}: ${caminho}`);
 
-  // 1) Ler os arquivos (TXT/CSV) como texto
-  let extratoText;
-  let controleText;
-  let duplicatasText = null;
-
-  try {
-    extratoText = lerArquivoTexto(caminhoExtrato);
-    controleText = lerArquivoTexto(caminhoControle);
-
-    if (caminhoDuplicatas) {
-      duplicatasText = lerArquivoTexto(caminhoDuplicatas);
-      console.log("📄 Arquivo de duplicatas carregado.");
-    } else {
-      console.log("ℹ️ Nenhum arquivo de duplicatas enviado (isso é opcional).");
-    }
-  } catch (err) {
-    console.error("❌ Erro ao ler arquivos:", err);
-    throw new Error("Erro ao ler arquivos de extrato/controle. " + err.message);
+  if (!fs.existsSync(caminho)) {
+    throw new Error(`Arquivo não encontrado: ${caminho}`);
   }
 
-  // 2) Montar o prompt para a IA (versão especificação do Ronaldo)
-  const prompt = `
-Você é um contador especializado em conciliação bancária.
+  const buffer = fs.readFileSync(caminho);
+  const ext = (path.extname(caminho) || "").toLowerCase();
+  const magic = buffer.slice(0, 5).toString(); // ex: "%PDF-"
 
-Você sempre recebe:
+  // ===== PDF (texto ou imagem) =====
+  if (ext === ".pdf" || magic.startsWith("%PDF")) {
+    console.log(`📑 [${label}] Detectado PDF – usando pdf-parse…`);
+    try {
+      const data = await pdfParse(buffer);
+      const texto = (data.text || "").trim();
+      console.log(
+        `🔎 [${label}] Preview texto PDF:\n` +
+          texto.slice(0, 600) +
+          "\n--- FIM PREVIEW ---\n"
+      );
+      return texto;
+    } catch (err) {
+      console.error(
+        `[${label}] Erro ao ler PDF com pdf-parse:`,
+        err.message
+      );
+      // fallback: devolve string bruta (não é o ideal, mas evita quebrar)
+      const textoBruto = buffer.toString("utf8");
+      console.log(
+        `⚠️ [${label}] Usando fallback de texto bruto do PDF (tamanho ${textoBruto.length}).`
+      );
+      return textoBruto;
+    }
+  }
 
-- DOC1 = Extrato bancário do mês (lançamentos reais no banco).
-- DOC2 = Controle interno do mês (lançamentos esperados pela contabilidade).
-- DOC3 = Arquivo de duplicatas / contas a receber (OPCIONAL).
+  // ===== Excel (.xlsx / .xls) =====
+  if (ext === ".xlsx" || ext === ".xls") {
+    console.log(`📊 [${label}] Detectado Excel – usando xlsx…`);
+    const workbook = XLSX.read(buffer, { type: "buffer" });
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
 
-Os conteúdos vêm como texto, já extraído de planilhas ou sistemas.
+    // Converte a 1ª aba pra CSV de texto, que a IA entende muito bem
+    const csv = XLSX.utils.sheet_to_csv(sheet, { FS: ";", RS: "\n" });
+    console.log(
+      `🔎 [${label}] Preview texto Excel:\n` +
+        csv.slice(0, 600) +
+        "\n--- FIM PREVIEW ---\n"
+    );
+    return csv;
+  }
 
-A seguir estão os documentos:
+  // ===== TXT / CSV / outros textos =====
+  const texto = buffer.toString("utf8");
+  console.log(
+    `📄 [${label}] TXT/CSV (ou fallback texto) – tamanho ${texto.length}`
+  );
+  console.log(
+    `🔎 [${label}] Preview texto:\n` +
+      texto.slice(0, 600) +
+      "\n--- FIM PREVIEW ---\n"
+  );
+  return texto;
+}
 
-[DOC1_EXTRATO]
-${extratoText}
+/**
+ * Lê vários arquivos (string ou array) e concatena o texto.
+ */
+async function lerVariosArquivosComoTexto(caminhos, labelBase) {
+  const lista = normalizarCaminhos(caminhos);
+  if (lista.length === 0) return "";
 
-[DOC2_CONTROLE_INTERNO]
-${controleText}
+  let textoFinal = "";
+  for (let i = 0; i < lista.length; i++) {
+    const caminho = lista[i];
+    const label = `${labelBase}_${i + 1}`;
+    const t = await lerArquivoGenerico(caminho, label);
+    textoFinal += `\n\n===== INÍCIO ${label} =====\n\n${t}`;
+  }
+  return textoFinal.trim();
+}
+
+/**
+ * Limita o texto para não estourar os limites de tokens da OpenAI.
+ * maxChars ~ 60.000 ≈ ~15k tokens (aproximado).
+ */
+function limitarTextoParaIA(texto, maxChars, nomeDoc) {
+  if (!texto) return "";
+  if (texto.length <= maxChars) return texto;
+
+  console.log(
+    `⚠️ ${nomeDoc} muito grande (${texto.length} caracteres). ` +
+      `Será truncado para ${maxChars} caracteres para não estourar tokens.`
+  );
+
+  return (
+    texto.slice(0, maxChars) +
+    `\n\n[AVISO: Conteúdo truncado automaticamente para caber no limite da IA.]`
+  );
+}
+
+/**
+ * Limpa e extrai só o bloco CSV do texto retornado pela IA.
+ */
+function extrairBlocoCsv(texto) {
+  if (!texto) return "";
+
+  // Se vier entre ```csv ... ```
+  const cercado = texto.match(/```(?:csv)?([\s\S]*?)```/i);
+  if (cercado) {
+    texto = cercado[1];
+  }
+
+  // Força a começar no cabeçalho esperado
+  const headerRegex =
+    /^Data;Valor;Descrição Doc1;Descrição Doc2;Documento de Origem.*$/m;
+  const m = texto.match(headerRegex);
+  if (m && typeof m.index === "number") {
+    texto = texto.slice(m.index);
+  }
+
+  return texto.trim();
+}
+
+/**
+ * Chama a IA pra gerar um CSV de divergências (formato Ronaldo).
+ */
+async function gerarCsvDivergenciasComIA(
+  extratoTexto,
+  controleTexto,
+  duplicatasTexto
+) {
+  console.log("🧠 Chamando a IA para gerar o CSV de divergências…");
+
+  const systemPrompt = `
+Você é um especialista em conciliação bancária.
+
+Sua tarefa:
+- Comparar o EXTRATO BANCÁRIO (DOC1) com o CONTROLE INTERNO / RAZÃO (DOC2).
+- Opcionalmente usar o arquivo de DUPLICATAS (DOC3) apenas para enriquecer descrições.
+
+Regras IMPORTANTES:
+- Identifique APENAS lançamentos divergentes:
+  * Lançamento que aparece só no DOC1 (extrato).
+  * Lançamento que aparece só no DOC2 (controle interno).
+  * Lançamento que existe nos dois, mas com diferença de valor, data ou tipo (débito x crédito).
+- Use como chave: combinação de DATA + VALOR + DESCRIÇÃO aproximada.
+- Tolere pequenas diferenças de texto na descrição (maiúsculas, acentos, abreviações).
+- A contagem de divergências deve ser 100% consistente: compare rigorosamente DATA + VALOR + NATUREZA (crédito/débito). Não invente divergências e não ignore nenhuma.
+- Preencha SEMPRE todas as colunas. Se algo não existir em DOC1 ou DOC2, preencha com "—".
+
+Formato de saída OBRIGATÓRIO (CSV, separado por ponto e vírgula):
+Primeira linha DEVE ser exatamente:
+Data;Valor;Descrição Doc1;Descrição Doc2;Documento de Origem
+
+Cada linha seguinte representa UMA divergência:
+- Data: data do lançamento divergente (dd/mm/aaaa).
+- Valor: valor do lançamento divergente com vírgula como separador decimal (ex: 1.234,56), sem "D" ou "C".
+- Descrição Doc1: descrição do lançamento no DOC1 ou "—" se só existir no DOC2.
+- Descrição Doc2: descrição do lançamento no DOC2 ou "—" se só existir no DOC1.
+- Documento de Origem:
+    - "DOC1" se só existe no extrato,
+    - "DOC2" se só existe no controle interno,
+    - "AMBOS" se existe nos dois, mas com diferença de valor/data/tipo.
+
+NÃO inclua comentários, cabeçalhos extras ou texto fora do CSV.
+Se não houver divergências, retorne apenas a linha de cabeçalho.
+`.trim();
+
+  const userPrompt = `
+[DOC1 - EXTRATO BANCÁRIO]
+${extratoTexto}
+
+[DOC2 - CONTROLE INTERNO / RAZÃO]
+${controleTexto}
 
 ${
-  duplicatasText
-    ? `[DOC3_DUPLICATAS]
-${duplicatasText}`
+  duplicatasTexto
+    ? `[DOC3 - RELATÓRIO DE DUPLICATAS]
+${duplicatasTexto}`
     : ""
 }
 
-Sua tarefa é COMPARAR DOC1 e DOC2 e gerar UMA ÚNICA TABELA em CSV
-(com separador ponto-e-vírgula ";") contendo APENAS AS DIVERGÊNCIAS.
+Gere o CSV de divergências seguindo exatamente o formato especificado.
+`.trim();
 
-Divergência significa:
-- lançamento que existe em DOC1 e não existe em DOC2 (mesma data e valor), ou
-- lançamento que existe em DOC2 e não existe em DOC1, ou
-- lançamentos que existem nos dois, mas com VALOR diferente.
-
-O CSV deve ter EXATAMENTE estas colunas, nesta ordem:
-
-Data;Valor;Descrição Doc1;Descrição Doc2;Documento de Origem
-
-Regras IMPORTANTES:
-
-1) Formato da data:
-   - Sempre DD/MM/AAAA (ex: 05/11/2025).
-
-2) Coluna "Valor":
-   - Use número com ponto como separador decimal (ex: 1234.56).
-   - Valor POSITIVO significa ENTRADA.
-   - Valor NEGATIVO significa SAÍDA.
-
-3) Colunas de descrição:
-   - "Descrição Doc1": texto da linha correspondente no DOC1 (extrato bancário).
-   - "Descrição Doc2": texto da linha correspondente no DOC2 (controle interno).
-   - Se o lançamento existir só no DOC1, preencha apenas "Descrição Doc1" e deixe "Descrição Doc2" vazio.
-   - Se existir só no DOC2, preencha apenas "Descrição Doc2" e deixe "Descrição Doc1" vazio.
-   - Se existir nos dois com valores diferentes, preencha as duas descrições.
-
-4) Coluna "Documento de Origem":
-   - Se a divergência vier só do extrato, use exatamente: Extrato
-   - Se vier só do controle interno, use exatamente: Controle
-   - Se houver diferenças entre os dois para a mesma data/valor, use exatamente: Ambos
-
-5) Uso do DOC3 (duplicatas), quando fornecido:
-   - Use esse documento SOMENTE para enriquecer as descrições.
-   - Exemplo: incluir número da nota, número da duplicata, parcela e vencimento
-     dentro de "Descrição Doc1" ou "Descrição Doc2", quando houver correspondência clara.
-   - NÃO crie colunas adicionais no CSV.
-   - Se não achar correspondência, apenas ignore o DOC3 para aquele lançamento.
-
-6) MUITO IMPORTANTE:
-   - Retorne SOMENTE o CSV.
-   - A PRIMEIRA LINHA deve ser obrigatoriamente o cabeçalho, exatamente assim:
-     Data;Valor;Descrição Doc1;Descrição Doc2;Documento de Origem
-   - Não escreva nenhum texto explicativo antes nem depois.
-`;
-
-  // 3) Chamar a OpenAI usando chat.completions (texto puro)
-  console.log(
-    "🧠 Chamando a IA para gerar o CSV de divergências (formato Ronaldo)…"
-  );
-
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4.1-mini",
-    messages: [
+  const response = await openai.responses.create({
+    model: "gpt-4.1",
+    input: [
       {
         role: "system",
-        content:
-          "Você é um contador especialista em conciliação bancária. Sempre responda exatamente no formato CSV especificado.",
+        content: [{ type: "input_text", text: systemPrompt }],
       },
       {
         role: "user",
-        content: prompt,
+        content: [{ type: "input_text", text: userPrompt }],
       },
     ],
   });
 
-  const csv = completion.choices?.[0]?.message?.content?.trim();
+  const textoSaida = response.output[0]?.content[0]?.text || "";
+  const csvLimpo = extrairBlocoCsv(textoSaida);
 
-  if (!csv) {
-    console.error("❌ A IA não retornou texto de CSV.");
-    throw new Error("A IA não retornou CSV.");
+  console.log(
+    "✅ CSV recebido da IA (preview):\n" +
+      csvLimpo.slice(0, 400) +
+      "\n--- FIM PREVIEW CSV ---\n"
+  );
+
+  return csvLimpo;
+}
+
+/**
+ * Converte o CSV (texto) em matriz (array de arrays) para gerar o Excel.
+ * Garante SEMPRE 5 colunas.
+ */
+function csvParaMatriz(csvTexto) {
+  const linhas = csvTexto
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0);
+
+  if (linhas.length === 0) {
+    // Garante pelo menos o cabeçalho
+    return [
+      [
+        "Data",
+        "Valor",
+        "Descrição Doc1",
+        "Descrição Doc2",
+        "Documento de Origem",
+      ],
+    ];
   }
 
-  console.log("✅ CSV recebido da IA:");
-  console.log(csv);
+  const matriz = linhas.map((linha, idx) => {
+    let cols = linha.split(";").map((c) => c.trim());
 
-  // 4) Converter o CSV em matriz (array de arrays),
-  // garantindo que o cabeçalho fique 100% igual ao pedido.
-  const linhas = csv.split(/\r?\n/).filter((l) => l.trim().length > 0);
-  const headerOficial = [
-    "Data",
-    "Valor",
-    "Descrição Doc1",
-    "Descrição Doc2",
-    "Documento de Origem",
-  ];
-
-  const dados = [];
-  // Sempre forçamos o cabeçalho correto
-  dados.push(headerOficial);
-
-  if (linhas.length > 0) {
-    // Verifica se a primeira linha parece ser cabeçalho da IA
-    const primeiraCols = linhas[0]
-      .split(";")
-      .map((c) => c.trim().toLowerCase());
-
-    const ehCabecalhoIa =
-      primeiraCols[0]?.includes("data") &&
-      primeiraCols[1]?.includes("valor") &&
-      primeiraCols.length >= 2;
-
-    const startIndex = ehCabecalhoIa ? 1 : 0;
-
-    for (let i = startIndex; i < linhas.length; i++) {
-      const cols = linhas[i].split(";").map((c) => c.trim());
-      if (cols.filter((c) => c.length > 0).length === 0) continue; // pula linha vazia
-      dados.push(cols);
+    // Cabeçalho: só forçamos o tamanho, não mexemos no texto
+    if (idx === 0) {
+      while (cols.length < 5) cols.push("");
+      return cols.slice(0, 5);
     }
+
+    // Linhas de dados: garantir 5 colunas
+    while (cols.length < 5) cols.push("");
+    if (cols.length > 5) {
+      const extras = cols.splice(5);
+      // Junta qualquer coisa que sobrou na descrição do DOC2
+      cols[3] = `${cols[3]} ${extras.join(" ")}`.trim();
+    }
+
+    return cols.slice(0, 5);
+  });
+
+  return matriz;
+}
+
+/**
+ * Função principal chamada pelo server.js
+ * Aceita string OU array de caminhos para cada documento.
+ */
+export async function rodarConciliacao(
+  caminhosExtrato,
+  caminhosControle,
+  caminhosDuplicatas // opcional
+) {
+  console.log(
+    "🔄 Iniciando conciliação (com IA + leitura universal + múltiplos arquivos)…"
+  );
+
+  // 1) Ler arquivos como texto (universal + múltiplos)
+  let extratoTexto = await lerVariosArquivosComoTexto(
+    caminhosExtrato,
+    "DOC1_EXTRATO"
+  );
+  let controleTexto = await lerVariosArquivosComoTexto(
+    caminhosControle,
+    "DOC2_CONTROLE"
+  );
+  let duplicatasTexto = await lerVariosArquivosComoTexto(
+    caminhosDuplicatas,
+    "DOC3_DUPLICATAS"
+  );
+
+  if (!duplicatasTexto) {
+    console.log(
+      "ℹ️ Nenhum arquivo de duplicatas enviado (isso é opcional)."
+    );
   }
 
-  // Contagem de divergências (linhas de dados, sem cabeçalho)
-  const totalDivergencias = Math.max(dados.length - 1, 0);
+  // 2) Limitar tamanho pra não estourar tokens (bem conservador)
+  const MAX_CHARS = 60000; // por documento
+  extratoTexto = limitarTextoParaIA(extratoTexto, MAX_CHARS, "DOC1_EXTRATO");
+  controleTexto = limitarTextoParaIA(
+    controleTexto,
+    MAX_CHARS,
+    "DOC2_CONTROLE"
+  );
+  if (duplicatasTexto) {
+    duplicatasTexto = limitarTextoParaIA(
+      duplicatasTexto,
+      MAX_CHARS,
+      "DOC3_DUPLICATAS"
+    );
+  }
+
+  // 🔧 Normalização simples de espaços para evitar ruídos
+  extratoTexto = extratoTexto.replace(/\s+/g, " ");
+  controleTexto = controleTexto.replace(/\s+/g, " ");
+  if (duplicatasTexto) {
+    duplicatasTexto = duplicatasTexto.replace(/\s+/g, " ");
+  }
+
+  // 3) IA gera o CSV de divergências
+  const csvDivergencias = await gerarCsvDivergenciasComIA(
+    extratoTexto,
+    controleTexto,
+    duplicatasTexto || null
+  );
+
+  // 4) CSV → matriz para planilha
+  const matriz = csvParaMatriz(csvDivergencias);
+
+  const totalDivergencias = matriz.length > 1 ? matriz.length - 1 : 0;
   const temDivergencias = totalDivergencias > 0;
 
-  if (!temDivergencias) {
-    console.log("ℹ️ Nenhuma divergência encontrada (apenas cabeçalho no Excel).");
-  } else {
-    console.log(`✅ Foram encontradas ${totalDivergencias} divergência(s).`);
-  }
+  console.log(
+    `📊 Total de divergências apontadas pela IA: ${totalDivergencias}`
+  );
 
-  // 5) Criar a planilha Excel em memória
-  const planilha = XLSX.utils.aoa_to_sheet(dados);
+  // 5) Gerar Excel
+  const planilha = XLSX.utils.aoa_to_sheet(matriz);
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, planilha, "Divergencias");
 
-  // 6) Salvar o Excel na pasta uploads
   const outputPath = path.join(
     __dirname,
     "..",
@@ -219,10 +367,9 @@ Regras IMPORTANTES:
   );
 
   XLSX.writeFile(workbook, outputPath);
-
   console.log("✅ Excel criado em:", outputPath);
 
-  // 7) Retornar o caminho + info de divergências para o server.js responder
+  // 6) Retorno pro server.js
   return {
     outputPath,
     temDivergencias,

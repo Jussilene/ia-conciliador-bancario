@@ -1,0 +1,33 @@
+# --- Node.js ---
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# --- Ambiente / Segredos ---
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+
+# --- Uploads dos arquivos da conciliação ---
+uploads/
+!uploads/.gitkeep
+
+# --- Logs do servidor ---
+logs/
+*.log
+*.tmp
+*.pid
+*.seed
+
+# --- Sistema operacional ---
+.DS_Store
+Thumbs.db
+
+# --- VSCode ---
+.vscode/
+
+# --- Segredo do frontend ---
+public/config.js

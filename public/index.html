@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <title>IA Conciliador Bancário</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Tailwind via CDN (só front, não quebra nada no backend) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+      /* fonte mais clean */
+      body {
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+      }
+
+      /* animação suave do chat */
+      .fade-in {
+        animation: fadeIn 0.25s ease-in-out;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+    </style>
+  </head>
+  <body class="min-h-screen bg-slate-950 text-slate-100">
+    <div
+      class="min-h-screen flex items-center justify-center px-4 py-10 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950"
+    >
+      <div
+        class="w-full max-w-5xl mx-auto bg-slate-900/70 border border-slate-800 rounded-3xl shadow-2xl shadow-sky-900/30 backdrop-blur-xl p-8 lg:p-10"
+      >
+        <!-- topo -->
+        <header class="flex flex-col gap-3 mb-8">
+          <span
+            class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-sky-500/10 text-sky-300 border border-sky-500/30 w-fit"
+          >
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            IA Conciliador Bancário · Beta
+          </span>
+
+          <h1 class="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-50">
+            Conciliação bancária em minutos, não em horas.
+          </h1>
+          <p class="text-slate-300 text-sm sm:text-base max-w-2xl">
+            Envie o <strong>extrato bancário</strong>, o
+            <strong>controle interno</strong> e, se quiser,
+            o arquivo de <strong>duplicatas</strong>.
+            A IA compara tudo e gera automaticamente um
+            <strong>Excel só com as divergências</strong>,
+            pronto para ajuste contábil.
+          </p>
+        </header>
+
+        <!-- passo a passo -->
+        <section
+          class="grid gap-4 sm:grid-cols-3 mb-8 text-xs sm:text-sm text-slate-200"
+        >
+          <div
+            class="rounded-2xl border border-slate-800 bg-slate-900/60 px-4 py-3 flex gap-3"
+          >
+            <div
+              class="w-7 h-7 flex items-center justify-center rounded-full bg-sky-500/15 text-sky-300 text-xs font-semibold"
+            >
+              1
+            </div>
+            <div>
+              <h2 class="font-semibold mb-1">Envie os arquivos</h2>
+              <p class="text-slate-400">
+                Extrato bancário e controle interno em
+                <span class="font-medium">PDF ou TXT/CSV</span>.
+              </p>
+            </div>
+          </div>
+
+          <div
+            class="rounded-2xl border border-slate-800 bg-slate-900/60 px-4 py-3 flex gap-3"
+          >
+            <div
+              class="w-7 h-7 flex items-center justify-center rounded-full bg-emerald-500/15 text-emerald-300 text-xs font-semibold"
+            >
+              2
+            </div>
+            <div>
+              <h2 class="font-semibold mb-1">IA faz a conciliação</h2>
+              <p class="text-slate-400">
+                A IA compara lançamento a lançamento e identifica divergências.
+              </p>
+            </div>
+          </div>
+
+          <div
+            class="rounded-2xl border border-slate-800 bg-slate-900/60 px-4 py-3 flex gap-3 sm:col-span-1"
+          >
+            <div
+              class="w-7 h-7 flex items-center justify-center rounded-full bg-indigo-500/15 text-indigo-300 text-xs font-semibold"
+            >
+              3
+            </div>
+            <div>
+              <h2 class="font-semibold mb-1">Baixe o Excel final</h2>
+              <p class="text-slate-400">
+                Arquivo
+                <span class="font-mono text-xs">conciliacao_divergencias.xlsx</span>
+                com <strong>apenas as diferenças</strong>.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <!-- formulário -->
+        <section
+          class="rounded-3xl border border-slate-800 bg-slate-950/70 px-4 sm:px-6 py-6 sm:py-7"
+        >
+          <h2 class="text-lg sm:text-xl font-semibold text-slate-50 mb-4">
+            Enviar arquivos para conciliação
+          </h2>
+
+          <form
+            action="/conciliar"
+            method="POST"
+            enctype="multipart/form-data"
+            class="space-y-5"
+          >
+            <!-- Extrato -->
+            <div class="space-y-1.5">
+              <label
+                for="extrato"
+                class="block text-sm font-medium text-slate-200"
+              >
+                Extrato bancário
+                <span class="text-xs font-normal text-slate-400">
+                  (DOC1 · PDF ou TXT/CSV)
+                </span>
+              </label>
+              <p class="text-xs text-slate-400 mb-1">
+                Arquivo exportado do banco com data, descrição e valor de cada
+                lançamento.
+              </p>
+              <input
+                type="file"
+                id="extrato"
+                name="extrato"
+                accept=".pdf,.txt,.csv"
+                required
+                multiple
+                class="block w-full text-sm text-slate-200
+                       file:mr-3 file:py-2.5 file:px-4
+                       file:rounded-full file:border-0
+                       file:text-sm file:font-medium
+                       file:bg-sky-500/20 file:text-sky-200
+                       hover:file:bg-sky-500/30
+                       cursor-pointer border border-slate-700 rounded-xl bg-slate-900/60"
+              />
+            </div>
+
+            <!-- Controle interno -->
+            <div class="space-y-1.5">
+              <label
+                for="controle"
+                class="block text-sm font-medium text-slate-200"
+              >
+                Controle interno
+                <span class="text-xs font-normal text-slate-400">
+                  (DOC2 · PDF ou TXT/CSV)
+                </span>
+              </label>
+              <p class="text-xs text-slate-400 mb-1">
+                Relatório do sistema/planilha com os lançamentos esperados
+                pela contabilidade.
+              </p>
+              <input
+                type="file"
+                id="controle"
+                name="controle"
+                accept=".pdf,.txt,.csv"
+                required
+                multiple
+                class="block w-full text-sm text-slate-200
+                       file:mr-3 file:py-2.5 file:px-4
+                       file:rounded-full file:border-0
+                       file:text-sm file:font-medium
+                       file:bg-sky-500/20 file:text-sky-200
+                       hover:file:bg-sky-500/30
+                       cursor-pointer border border-slate-700 rounded-xl bg-slate-900/60"
+              />
+            </div>
+
+            <!-- Duplicatas opcional -->
+            <div class="space-y-1.5">
+              <label
+                for="duplicatas"
+                class="block text-sm font-medium text-slate-200"
+              >
+                Arquivo de duplicatas
+                <span class="text-xs font-normal text-slate-400">
+                  (DOC3 · opcional · PDF ou TXT/CSV)
+                </span>
+              </label>
+              <p class="text-xs text-slate-400 mb-1">
+                Use um relatório com número da nota, número da duplicata, valor
+                das parcelas e vencimentos. A IA usa esse arquivo apenas para
+                enriquecer as descrições das divergências.
+              </p>
+              <input
+                type="file"
+                id="duplicatas"
+                name="duplicatas"
+                accept=".pdf,.txt,.csv"
+                multiple
+                class="block w-full text-sm text-slate-200
+                       file:mr-3 file:py-2.5 file:px-4
+                       file:rounded-full file:border-0
+                       file:text-sm file:font-medium
+                       file:bg-emerald-500/15 file:text-emerald-200
+                       hover:file:bg-emerald-500/25
+                       cursor-pointer border border-slate-700 rounded-xl bg-slate-900/60"
+              />
+            </div>
+
+            <!-- botão -->
+            <div class="pt-2">
+              <button
+                type="submit"
+                class="inline-flex items-center justify-center gap-2
+                       px-6 py-3 rounded-full text-sm sm:text-base font-semibold
+                       bg-sky-500 hover:bg-sky-400 text-slate-950
+                       shadow-lg shadow-sky-500/40
+                       transition transform hover:-translate-y-0.5"
+              >
+                <span class="text-lg">⚙️</span>
+                Iniciar conciliação bancária
+              </button>
+              <p class="mt-2 text-xs text-slate-500">
+                Assim que o processamento terminar, você poderá baixar o
+                arquivo <span class="font-mono">conciliacao_divergencias.xlsx</span>.
+              </p>
+            </div>
+          </form>
+        </section>
+
+        <!-- rodapé + botão de chat dentro do container -->
+        <footer
+          class="mt-6 text-[11px] text-slate-500 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <span>IA Conciliador Bancário · Powered by OpenAI</span>
+
+          <div class="flex items-center justify-end gap-3">
+            <span class="hidden sm:inline">Versão demo para testes internos</span>
+
+            <!-- Botão do chat DENTRO do container, à direita e maiorzinho -->
+            <button
+              id="chatToggle"
+              class="inline-flex items-center gap-2 rounded-full bg-sky-500 hover:bg-sky-400 text-slate-950 text-xs sm:text-sm font-semibold px-4 sm:px-5 py-2 shadow-lg shadow-sky-500/40"
+            >
+              <span>💬</span>
+              <span>IA Conciliador</span>
+            </button>
+          </div>
+
+          <!-- texto de versão visível em telas menores -->
+          <span class="sm:hidden text-right">Versão demo para testes internos</span>
+        </footer>
+      </div>
+    </div>
+
+    <!-- 💬 JANELA DO CHAT DA IA – GRANDE E CENTRALIZADA -->
+    <div
+      id="chatWindow"
+      class="hidden fixed inset-0 z-40 flex items-center justify-center px-3 sm:px-6 bg-black/40 fade-in"
+    >
+      <div
+        class="w-full max-w-3xl bg-slate-950/95 text-slate-100 rounded-2xl shadow-2xl border border-sky-500/40 backdrop-blur-xl flex flex-col h-[75vh]"
+      >
+        <!-- Topo do chat -->
+        <div
+          class="flex items-center justify-between px-3 sm:px-4 py-2.5 border-b border-slate-800 rounded-t-2xl bg-slate-950/95"
+        >
+          <div class="flex items-center gap-2 sm:gap-3">
+            <div
+              class="w-8 h-8 rounded-full bg-sky-500/20 border border-sky-400/60 flex items-center justify-center text-xs"
+            >
+              IA
+            </div>
+            <div>
+              <p class="text-xs sm:text-sm font-semibold leading-tight">
+                IA Conciliador Bancário
+              </p>
+              <p
+                class="text-[10px] sm:text-[11px] text-emerald-400 flex items-center gap-1"
+              >
+                <span
+                  class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"
+                ></span>
+                Online · Beta
+              </p>
+            </div>
+          </div>
+          <button
+            id="chatClose"
+            class="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-slate-100 rounded-full hover:bg-slate-800 text-lg leading-none"
+          >
+            ×
+          </button>
+        </div>
+
+        <!-- Mensagens -->
+        <div
+          id="chatMessages"
+          class="flex-1 flex flex-col gap-2 px-3 sm:px-4 py-3 overflow-y-auto text-xs sm:text-sm"
+        ></div>
+
+        <!-- Input + sugestões -->
+        <div
+          class="border-t border-slate-800 px-3 sm:px-4 py-2.5 space-y-2 bg-slate-950/95 rounded-b-2xl"
+        >
+          <div class="flex gap-2">
+            <input
+              id="chatInput"
+              type="text"
+              class="flex-1 bg-slate-900/80 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-sky-500 placeholder:text-slate-500"
+              placeholder="Pergunte algo sobre a conciliação..."
+            />
+            <button
+              id="chatSend"
+              class="px-3 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-slate-950 text-xs sm:text-sm font-semibold"
+            >
+              ➤
+            </button>
+          </div>
+
+          <!-- Botões rápidos -->
+          <div class="flex flex-wrap gap-1.5">
+            <button
+              class="chat-quick text-[10px] sm:text-xs px-2.5 py-1 rounded-full bg-slate-900 border border-slate-700 hover:border-sky-500"
+              data-key="como_enviar"
+            >
+              Como enviar os PDFs?
+            </button>
+            <button
+              class="chat-quick text-[10px] sm:text-xs px-2.5 py-1 rounded-full bg-slate-900 border border-slate-700 hover:border-sky-500"
+              data-key="resultado"
+            >
+              O que eu recebo?
+            </button>
+            <button
+              class="chat-quick text-[10px] sm:text-xs px-2.5 py-1 rounded-full bg-slate-900 border border-slate-700 hover:border-sky-500"
+              data-key="duplicatas"
+            >
+              E o arquivo de duplicatas?
+            </button>
+            <button
+              class="chat-quick text-[10px] sm:text-xs px-2.5 py-1 rounded-full bg-slate-900 border border-slate-700 hover:border-sky-500"
+              data-key="resumo"
+            >
+              Resumo rápido
+            </button>
+            <button
+              class="chat-quick text-[10px] sm:text-xs px-2.5 py-1 rounded-full bg-slate-900 border border-slate-700 hover:border-sky-500"
+              data-key="detalhes_tecnicos"
+            >
+              Detalhes técnicos
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Script do agente de chat -->
+    <script src="agente.js"></script>
+  </body>
+</html>

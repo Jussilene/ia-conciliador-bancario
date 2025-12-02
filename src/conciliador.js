@@ -158,35 +158,44 @@ async function gerarCsvDivergenciasComIA(
   console.log("🧠 Chamando a IA para gerar o CSV de divergências…");
 
   const systemPrompt = `
-Você é um especialista em conciliação bancária.
+Você é um especialista em conciliação bancária extremamente rigoroso.
 
 Sua tarefa:
 - Comparar o EXTRATO BANCÁRIO (DOC1) com o CONTROLE INTERNO / RAZÃO (DOC2).
 - Opcionalmente usar o arquivo de DUPLICATAS (DOC3) apenas para enriquecer descrições.
 
-Regras IMPORTANTES:
-- Identifique APENAS lançamentos divergentes:
-  * Lançamento que aparece só no DOC1 (extrato).
-  * Lançamento que aparece só no DOC2 (controle interno).
-  * Lançamento que existe nos dois, mas com diferença de valor, data ou tipo (débito x crédito).
-- Use como chave: combinação de DATA + VALOR + DESCRIÇÃO aproximada.
-- Tolere pequenas diferenças de texto na descrição (maiúsculas, acentos, abreviações).
-- A contagem de divergências deve ser 100% consistente: compare rigorosamente DATA + VALOR + NATUREZA (crédito/débito). Não invente divergências e não ignore nenhuma.
-- Preencha SEMPRE todas as colunas. Se algo não existir em DOC1 ou DOC2, preencha com "—".
+REGRAS DE CONCILIAÇÃO (SEJA MUITO RÍGIDO):
+- Considere como "mesmo lançamento" somente quando DATA (dd/mm/aaaa) e VALOR são exatamente iguais.
+- Se a data e o valor forem iguais em DOC1 e DOC2, considere o lançamento conciliado (NÃO é divergência), mesmo que o texto da descrição seja um pouco diferente.
+- Só gere divergência se:
+  * existir em DOC1 e não existir nenhuma linha correspondente em DOC2 com a mesma DATA e VALOR; ou
+  * existir em DOC2 e não existir nenhuma linha correspondente em DOC1 com a mesma DATA e VALOR; ou
+  * existir em ambos, mas com mesma DATA e descrições semelhantes, porém VALORES diferentes.
+- NÃO invente divergências. Se estiver em dúvida se é ou não divergência, considere como conciliado e NÃO inclua no CSV.
+
+PREENCHIMENTO INTELIGENTE DAS DESCRIÇÕES:
+- Descrição Doc1:
+    - Se o lançamento existir em DOC1, use a melhor descrição possível a partir de DOC1.
+    - Se o lançamento não existir em DOC1 (só existe em DOC2), preencha com: "Não consta no extrato bancário (DOC1)".
+- Descrição Doc2:
+    - Se o lançamento existir em DOC2, use a melhor descrição possível a partir de DOC2.
+    - Se o lançamento não existir em DOC2 (só existe em DOC1), preencha com: "Não consta no controle interno (DOC2)".
+
+Documento de Origem:
+- "DOC1" se só existe no extrato.
+- "DOC2" se só existe no controle interno.
+- "AMBOS" se existe nos dois, mas há diferença de valor ou de tipo.
 
 Formato de saída OBRIGATÓRIO (CSV, separado por ponto e vírgula):
-Primeira linha DEVE ser exatamente:
+A PRIMEIRA LINHA deve ser exatamente:
 Data;Valor;Descrição Doc1;Descrição Doc2;Documento de Origem
 
 Cada linha seguinte representa UMA divergência:
 - Data: data do lançamento divergente (dd/mm/aaaa).
 - Valor: valor do lançamento divergente com vírgula como separador decimal (ex: 1.234,56), sem "D" ou "C".
-- Descrição Doc1: descrição do lançamento no DOC1 ou "—" se só existir no DOC2.
-- Descrição Doc2: descrição do lançamento no DOC2 ou "—" se só existir no DOC1.
-- Documento de Origem:
-    - "DOC1" se só existe no extrato,
-    - "DOC2" se só existe no controle interno,
-    - "AMBOS" se existe nos dois, mas com diferença de valor/data/tipo.
+- Descrição Doc1: conforme regra acima.
+- Descrição Doc2: conforme regra acima.
+- Documento de Origem: "DOC1", "DOC2" ou "AMBOS".
 
 NÃO inclua comentários, cabeçalhos extras ou texto fora do CSV.
 Se não houver divergências, retorne apenas a linha de cabeçalho.
@@ -206,11 +215,11 @@ ${duplicatasTexto}`
     : ""
 }
 
-Gere o CSV de divergências seguindo exatamente o formato especificado.
+Siga rigorosamente as regras e gere o CSV de divergências no formato especificado.
 `.trim();
 
   const response = await openai.responses.create({
-    model: "gpt-4.1",
+    model: "gpt-4.1-mini",
     input: [
       {
         role: "system",
@@ -237,7 +246,7 @@ Gere o CSV de divergências seguindo exatamente o formato especificado.
 
 /**
  * Converte o CSV (texto) em matriz (array de arrays) para gerar o Excel.
- * Garante SEMPRE 5 colunas.
+ * Garante SEMPRE 5 colunas e preenche descrições de forma inteligente.
  */
 function csvParaMatriz(csvTexto) {
   const linhas = csvTexto
@@ -275,10 +284,42 @@ function csvParaMatriz(csvTexto) {
       cols[3] = `${cols[3]} ${extras.join(" ")}`.trim();
     }
 
+    // Preenchimento inteligente das descrições se a IA deixou vazio
+    const docOrigem = (cols[4] || "").toUpperCase();
+
+    if (!cols[2]) {
+      if (docOrigem === "DOC2") {
+        cols[2] = "Não consta no extrato bancário (DOC1)";
+      } else {
+        cols[2] = "—";
+      }
+    }
+
+    if (!cols[3]) {
+      if (docOrigem === "DOC1") {
+        cols[3] = "Não consta no controle interno (DOC2)";
+      } else {
+        cols[3] = "—";
+      }
+    }
+
     return cols.slice(0, 5);
   });
 
-  return matriz;
+  // Remove linhas duplicadas de divergência (se a IA repetir algo)
+  const header = matriz[0];
+  const dados = matriz.slice(1);
+  const vistos = new Set();
+  const deduplicados = [];
+
+  for (const row of dados) {
+    const key = row.join("|").toLowerCase();
+    if (vistos.has(key)) continue;
+    vistos.add(key);
+    deduplicados.push(row);
+  }
+
+  return [header, ...deduplicados];
 }
 
 /**

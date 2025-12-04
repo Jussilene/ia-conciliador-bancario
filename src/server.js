@@ -378,8 +378,7 @@ app.post(
                   : "."}
               </p>
               <p>
-                O arquivo abaixo contém apenas os lançamentos divergentes,
-                organizados por data e valor, no formato combinado com o Ronaldo.
+                O arquivo abaixo contém apenas os lançamentos divergentes.
               </p>
 
               ${mensagemResultadoHtml}

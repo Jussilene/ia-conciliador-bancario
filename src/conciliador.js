@@ -37,9 +37,13 @@ async function lerArquivoGenerico(caminho, label = "DOC") {
     console.log(`📑 [${label}] Detectado PDF – usando pdf-parse…`);
     try {
       const data = await pdfParse(buffer);
-      const texto = (data.text || "").trim();
+      let texto = (data.text || "").trim();
+
+      // 🔧 CORREÇÃO: garantir quebra de linha antes de cada data dd/mm/aaaa
+      texto = texto.replace(/(\d{2}\/\d{2}\/\d{4})/g, "\n$1");
+
       console.log(
-        `🔎 [${label}] Preview texto PDF:\n` +
+        `🔎 [${label}] Preview texto PDF (corrigido):\n` +
           texto.slice(0, 600) +
           "\n--- FIM PREVIEW ---\n"
       );
@@ -165,12 +169,21 @@ Sua tarefa:
 - Opcionalmente usar o arquivo de DUPLICATAS (DOC3) apenas para enriquecer descrições.
 
 REGRAS DE CONCILIAÇÃO (SEJA MUITO RÍGIDO):
-- Considere como "mesmo lançamento" somente quando DATA (dd/mm/aaaa) e VALOR são exatamente iguais.
-- Se a data e o valor forem iguais em DOC1 e DOC2, considere o lançamento conciliado (NÃO é divergência), mesmo que o texto da descrição seja um pouco diferente.
+
+- DO NOT consider description text for matching.
+- A conciliação deve usar *exclusivamente* DATA (dd/mm/aaaa) e VALOR numérico.
+- DESCRIÇÃO NÃO PODE influenciar se há divergência ou não.
+
+Regra de pareamento:
+- Se existirem linhas em DOC1 e DOC2 com a MESMA DATA e o MESMO VALOR (ignorando a descrição), elas são consideradas CONCILIADAS. NÃO gere divergência.
 - Só gere divergência se:
   * existir em DOC1 e não existir nenhuma linha correspondente em DOC2 com a mesma DATA e VALOR; ou
   * existir em DOC2 e não existir nenhuma linha correspondente em DOC1 com a mesma DATA e VALOR; ou
-  * existir em ambos, mas com mesma DATA e descrições semelhantes, porém VALORES diferentes.
+  * existir em ambos, com a MESMA DATA, mas com VALORES diferentes (apenas UMA linha de divergência para esse caso).
+
+- Nunca gere duas divergências para a MESMA combinação de DATA + VALOR.
+  Cada divergência deve corresponder a um único lançamento.
+
 - NÃO invente divergências. Se estiver em dúvida se é ou não divergência, considere como conciliado e NÃO inclua no CSV.
 
 PREENCHIMENTO INTELIGENTE DAS DESCRIÇÕES:
@@ -371,12 +384,10 @@ export async function rodarConciliacao(
     );
   }
 
-  // 🔧 Normalização simples de espaços para evitar ruídos
-  extratoTexto = extratoTexto.replace(/\s+/g, " ");
-  controleTexto = controleTexto.replace(/\s+/g, " ");
-  if (duplicatasTexto) {
-    duplicatasTexto = duplicatasTexto.replace(/\s+/g, " ");
-  }
+  // 🔧 IMPORTANTE: NÃO REMOVER QUEBRAS DE LINHA NEM ESPAÇOS EM EXCESSO
+  // Antes havia um código aqui que fazia: texto.replace(/\s+/g, " ")
+  // Isso destruía o formato linha a linha dos lançamentos e fazia a IA inventar divergências.
+  // Por isso, NÃO normalizamos mais os espaços aqui.
 
   // 3) IA gera o CSV de divergências
   const csvDivergencias = await gerarCsvDivergenciasComIA(

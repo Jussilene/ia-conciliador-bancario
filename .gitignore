@@ -31,3 +31,18 @@ Thumbs.db
 
 # --- Segredo do frontend ---
 public/config.js
+
+# --- Build / Cache ---
+dist/
+build/
+.cache/
+coverage/
+
+# --- SQLite (banco local) ---
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm

@@ -2,14 +2,42 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <title>IA Conciliador Bancário</title>
+    <title>Concilia • IA Conciliador Bancário</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <!-- Tailwind via CDN (só front, não quebra nada no backend) -->
+    <!-- Tailwind CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
 
+    <!-- Tailwind config (paleta FluxoNF-ish) -->
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              fluxo: {
+                bg: "#0B1220",
+                bg2: "#0F1B2D",
+                card: "#111C2F",
+                line: "rgba(255,255,255,0.06)",
+                text: "#E5E7EB",
+                muted: "#9CA3AF",
+                brand: "#16A34A",
+                brand2: "#22C55E",
+                blue: "#3B82F6",
+                red: "#EF4444",
+                amber: "#F59E0B",
+              },
+            },
+            boxShadow: {
+              soft: "0 12px 30px rgba(0,0,0,0.10)",
+              soft2: "0 18px 45px rgba(0,0,0,0.18)",
+            },
+          },
+        },
+      };
+    </script>
+
     <style>
-      /* fonte mais clean */
       body {
         font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
           sans-serif;
@@ -19,7 +47,6 @@
       .fade-in {
         animation: fadeIn 0.25s ease-in-out;
       }
-
       @keyframes fadeIn {
         from {
           opacity: 0;
@@ -32,279 +59,536 @@
       }
     </style>
   </head>
-  <body class="min-h-screen bg-slate-950 text-slate-100">
-    <div
-      class="min-h-screen flex items-center justify-center px-4 py-10 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950"
-    >
-      <div
-        class="w-full max-w-5xl mx-auto bg-slate-900/70 border border-slate-800 rounded-3xl shadow-2xl shadow-sky-900/30 backdrop-blur-xl p-8 lg:p-10"
-      >
-        <!-- topo -->
-        <header class="flex flex-col gap-3 mb-8">
-          <span
-            class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-sky-500/10 text-sky-300 border border-sky-500/30 w-fit"
-          >
-            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            IA Conciliador Bancário · Beta
-          </span>
 
-          <h1 class="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-50">
-            Conciliação bancária em minutos, não em horas.
-          </h1>
-          <p class="text-slate-300 text-sm sm:text-base max-w-2xl">
-            Envie o <strong>extrato bancário</strong>, o
-            <strong>controle interno</strong> e, se quiser,
-            o arquivo de <strong>duplicatas</strong>.
-            A IA compara tudo e gera automaticamente um
-            <strong>Excel só com as divergências</strong>,
-            pronto para ajuste contábil.
-          </p>
-        </header>
-
-        <!-- passo a passo -->
-        <section
-          class="grid gap-4 sm:grid-cols-3 mb-8 text-xs sm:text-sm text-slate-200"
+  <body class="min-h-screen bg-slate-100 text-slate-900">
+    <!-- Mobile topbar (SEM CHAT AQUI) -->
+    <div class="lg:hidden sticky top-0 z-30 bg-white border-b border-slate-200">
+      <div class="px-4 py-3 flex items-center justify-between">
+        <button
+          id="mobileMenuBtn"
+          class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50"
+          aria-label="Abrir menu"
         >
+          <span class="text-lg">☰</span>
+          <span class="text-sm font-semibold">Menu</span>
+        </button>
+
+        <div class="flex items-center gap-2">
           <div
-            class="rounded-2xl border border-slate-800 bg-slate-900/60 px-4 py-3 flex gap-3"
+            class="w-9 h-9 rounded-xl bg-gradient-to-br from-fluxo-brand to-fluxo-brand2 text-white flex items-center justify-center font-bold shadow"
           >
-            <div
-              class="w-7 h-7 flex items-center justify-center rounded-full bg-sky-500/15 text-sky-300 text-xs font-semibold"
-            >
-              1
-            </div>
-            <div>
-              <h2 class="font-semibold mb-1">Envie os arquivos</h2>
-              <p class="text-slate-400">
-                Extrato bancário e controle interno em
-                <span class="font-medium">PDF ou TXT/CSV</span>.
-              </p>
-            </div>
+            ⇄
           </div>
-
-          <div
-            class="rounded-2xl border border-slate-800 bg-slate-900/60 px-4 py-3 flex gap-3"
-          >
-            <div
-              class="w-7 h-7 flex items-center justify-center rounded-full bg-emerald-500/15 text-emerald-300 text-xs font-semibold"
-            >
-              2
-            </div>
-            <div>
-              <h2 class="font-semibold mb-1">IA faz a conciliação</h2>
-              <p class="text-slate-400">
-                A IA compara lançamento a lançamento e identifica divergências.
-              </p>
-            </div>
+          <div class="leading-tight">
+            <p class="text-sm font-bold">Concilia</p>
+            <p class="text-[11px] text-slate-500">Conciliação Inteligente</p>
           </div>
+        </div>
 
-          <div
-            class="rounded-2xl border border-slate-800 bg-slate-900/60 px-4 py-3 flex gap-3 sm:col-span-1"
-          >
-            <div
-              class="w-7 h-7 flex items-center justify-center rounded-full bg-indigo-500/15 text-indigo-300 text-xs font-semibold"
-            >
-              3
-            </div>
-            <div>
-              <h2 class="font-semibold mb-1">Baixe o Excel final</h2>
-              <p class="text-slate-400">
-                Arquivo
-                <span class="font-mono text-xs">conciliacao_divergencias.xlsx</span>
-                com <strong>apenas as diferenças</strong>.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        <!-- formulário -->
-        <section
-          class="rounded-3xl border border-slate-800 bg-slate-950/70 px-4 sm:px-6 py-6 sm:py-7"
-        >
-          <h2 class="text-lg sm:text-xl font-semibold text-slate-50 mb-4">
-            Enviar arquivos para conciliação
-          </h2>
-
-          <form
-            action="/conciliar"
-            method="POST"
-            enctype="multipart/form-data"
-            class="space-y-5"
-          >
-            <!-- Extrato -->
-            <div class="space-y-1.5">
-              <label
-                for="extrato"
-                class="block text-sm font-medium text-slate-200"
-              >
-                Extrato bancário
-                <span class="text-xs font-normal text-slate-400">
-                  (DOC1 · PDF ou TXT/CSV)
-                </span>
-              </label>
-              <p class="text-xs text-slate-400 mb-1">
-                Arquivo exportado do banco com data, descrição e valor de cada
-                lançamento.
-              </p>
-              <input
-                type="file"
-                id="extrato"
-                name="extrato"
-                accept=".pdf,.txt,.csv"
-                required
-                multiple
-                class="block w-full text-sm text-slate-200
-                       file:mr-3 file:py-2.5 file:px-4
-                       file:rounded-full file:border-0
-                       file:text-sm file:font-medium
-                       file:bg-sky-500/20 file:text-sky-200
-                       hover:file:bg-sky-500/30
-                       cursor-pointer border border-slate-700 rounded-xl bg-slate-900/60"
-              />
-            </div>
-
-            <!-- Controle interno -->
-            <div class="space-y-1.5">
-              <label
-                for="controle"
-                class="block text-sm font-medium text-slate-200"
-              >
-                Controle interno
-                <span class="text-xs font-normal text-slate-400">
-                  (DOC2 · PDF ou TXT/CSV)
-                </span>
-              </label>
-              <p class="text-xs text-slate-400 mb-1">
-                Relatório do sistema/planilha com os lançamentos esperados
-                pela contabilidade.
-              </p>
-              <input
-                type="file"
-                id="controle"
-                name="controle"
-                accept=".pdf,.txt,.csv"
-                required
-                multiple
-                class="block w-full text-sm text-slate-200
-                       file:mr-3 file:py-2.5 file:px-4
-                       file:rounded-full file:border-0
-                       file:text-sm file:font-medium
-                       file:bg-sky-500/20 file:text-sky-200
-                       hover:file:bg-sky-500/30
-                       cursor-pointer border border-slate-700 rounded-xl bg-slate-900/60"
-              />
-            </div>
-
-            <!-- Duplicatas opcional -->
-            <div class="space-y-1.5">
-              <label
-                for="duplicatas"
-                class="block text-sm font-medium text-slate-200"
-              >
-                Arquivo de duplicatas
-                <span class="text-xs font-normal text-slate-400">
-                  (DOC3 · opcional · PDF ou TXT/CSV)
-                </span>
-              </label>
-              <p class="text-xs text-slate-400 mb-1">
-                Use um relatório com número da nota, número da duplicata, valor
-                das parcelas e vencimentos. A IA usa esse arquivo apenas para
-                enriquecer as descrições das divergências.
-              </p>
-              <input
-                type="file"
-                id="duplicatas"
-                name="duplicatas"
-                accept=".pdf,.txt,.csv"
-                multiple
-                class="block w-full text-sm text-slate-200
-                       file:mr-3 file:py-2.5 file:px-4
-                       file:rounded-full file:border-0
-                       file:text-sm file:font-medium
-                       file:bg-emerald-500/15 file:text-emerald-200
-                       hover:file:bg-emerald-500/25
-                       cursor-pointer border border-slate-700 rounded-xl bg-slate-900/60"
-              />
-            </div>
-
-            <!-- botão -->
-            <div class="pt-2">
-              <button
-                type="submit"
-                class="inline-flex items-center justify-center gap-2
-                       px-6 py-3 rounded-full text-sm sm:text-base font-semibold
-                       bg-sky-500 hover:bg-sky-400 text-slate-950
-                       shadow-lg shadow-sky-500/40
-                       transition transform hover:-translate-y-0.5"
-              >
-                <span class="text-lg">⚙️</span>
-                Iniciar conciliação bancária
-              </button>
-              <p class="mt-2 text-xs text-slate-500">
-                Assim que o processamento terminar, você poderá baixar o
-                arquivo <span class="font-mono">conciliacao_divergencias.xlsx</span>.
-              </p>
-            </div>
-          </form>
-        </section>
-
-        <!-- rodapé + botão de chat dentro do container -->
-        <footer
-          class="mt-6 text-[11px] text-slate-500 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
-        >
-          <span>IA Conciliador Bancário · Powered by OpenAI</span>
-
-          <div class="flex items-center justify-end gap-3">
-            <span class="hidden sm:inline">Versão demo para testes internos</span>
-
-            <!-- Botão do chat DENTRO do container, à direita e maiorzinho -->
-            <button
-              id="chatToggle"
-              class="inline-flex items-center gap-2 rounded-full bg-sky-500 hover:bg-sky-400 text-slate-950 text-xs sm:text-sm font-semibold px-4 sm:px-5 py-2 shadow-lg shadow-sky-500/40"
-            >
-              <span>💬</span>
-              <span>IA Conciliador</span>
-            </button>
-          </div>
-
-          <!-- texto de versão visível em telas menores -->
-          <span class="sm:hidden text-right">Versão demo para testes internos</span>
-        </footer>
+        <!-- espaço vazio p/ alinhar -->
+        <div class="w-[88px]"></div>
       </div>
     </div>
 
-    <!-- 💬 JANELA DO CHAT DA IA – GRANDE E CENTRALIZADA -->
+    <div class="min-h-screen flex">
+      <!-- Sidebar -->
+      <aside
+        id="sidebar"
+        class="fixed lg:static inset-y-0 left-0 z-40 w-[280px] bg-gradient-to-b from-fluxo-bg to-fluxo-bg2 text-fluxo-text
+               transform -translate-x-full lg:translate-x-0 transition-transform duration-200 ease-out
+               border-r border-[color:var(--line)]"
+        style="--line: rgba(255,255,255,0.06)"
+      >
+        <div class="h-full flex flex-col">
+          <!-- Brand -->
+          <div class="px-5 py-5 border-b border-white/10">
+            <div class="flex items-center gap-3">
+              <div
+                class="w-12 h-12 rounded-2xl bg-gradient-to-br from-fluxo-brand to-fluxo-brand2 text-white flex items-center justify-center font-black text-lg shadow"
+              >
+                ⇄
+              </div>
+              <div class="leading-tight">
+                <p class="text-lg font-extrabold">Concilia</p>
+                <p class="text-xs text-fluxo-muted">Conciliação Inteligente</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Nav -->
+          <nav class="px-4 py-4 space-y-2 flex-1">
+            <button
+              class="nav-btn w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-semibold
+                     bg-white/5 hover:bg-white/10 border border-white/10"
+              data-view="dashboard"
+            >
+              <span class="flex items-center gap-3">
+                <span class="text-xl">▦</span>
+                Dashboard
+              </span>
+              <span class="text-white/50">›</span>
+            </button>
+
+            <button
+              class="nav-btn w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-semibold
+                     bg-white/0 hover:bg-white/10 border border-transparent hover:border-white/10"
+              data-view="conciliacoes"
+            >
+              <span class="flex items-center gap-3">
+                <span class="text-xl">⧉</span>
+                Importar Dados
+              </span>
+              <span class="text-white/50">›</span>
+            </button>
+
+            <!-- IMPORTAR DADOS POR ÚLTIMO -->
+            <button
+              class="nav-btn w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-semibold
+                     bg-white/0 hover:bg-white/10 border border-transparent hover:border-white/10"
+              data-view="importar"
+            >
+              <span class="flex items-center gap-3">
+                <span class="text-xl">⇪</span>
+                Conciliações
+              </span>
+              <span class="text-white/50">›</span>
+            </button>
+          </nav>
+
+          <!-- ✅ Footer removido (não tem mais botão Sair aqui) -->
+        </div>
+      </aside>
+
+      <!-- Overlay mobile -->
+      <div
+        id="sidebarOverlay"
+        class="fixed inset-0 bg-black/40 z-30 hidden lg:hidden"
+      ></div>
+
+      <!-- Main -->
+      <main class="flex-1 lg:ml-0 w-full">
+        <!-- Desktop topbar (SEM CHAT AQUI) -->
+        <div class="hidden lg:block sticky top-0 z-20 bg-white border-b border-slate-200">
+          <div class="px-7 py-5 flex items-center justify-between">
+            <div>
+              <h1 id="pageTitle" class="text-3xl font-extrabold">Dashboard</h1>
+              <p id="pageSubtitle" class="text-slate-500 mt-1">
+                Visão geral da sua conciliação bancária
+              </p>
+            </div>
+
+            <!-- ✅ Dropdown do usuário -->
+            <div class="flex items-center gap-3">
+              <div class="relative" id="userMenuWrap">
+                <button
+                  id="userMenuBtn"
+                  class="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50"
+                  type="button"
+                >
+                  <span class="text-xs text-slate-500">USUÁRIO</span>
+                  <span id="userNameTop" class="font-bold">—</span>
+                  <span class="text-slate-500">☰</span>
+                </button>
+
+                <div
+                  id="userMenu"
+                  class="hidden absolute right-0 mt-2 w-64 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden"
+                >
+                  <div class="p-4 border-b border-slate-200">
+                    <p id="userNameCard" class="font-extrabold">—</p>
+                    <p id="userEmailCard" class="text-sm text-slate-500">—</p>
+                    <p
+                      id="userRoleCard"
+                      class="text-xs mt-1 inline-flex px-2 py-0.5 rounded-full border border-slate-200"
+                    >
+                      —
+                    </p>
+                  </div>
+
+                  <button id="openSettings" class="w-full text-left px-4 py-3 hover:bg-slate-50">
+                    ⚙️ Configurações
+                  </button>
+
+                  <!-- ✅ AJUSTE: botão Sair azul + ícone setinha (tipo FluxoNF) -->
+                  <button
+                    id="logoutBtn"
+                    class="w-full text-left px-4 py-3 hover:bg-blue-50 text-fluxo-blue font-bold flex items-center gap-2"
+                  >
+                    <span class="inline-flex items-center justify-center w-5">
+                      <!-- ícone de sair (porta + seta) -->
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round"
+                        class="w-4 h-4">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                        <path d="M16 17l5-5-5-5"/>
+                        <path d="M21 12H9"/>
+                      </svg>
+                    </span>
+                    <span>Sair</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+            <!-- /Dropdown -->
+          </div>
+        </div>
+
+        <!-- Content -->
+        <div class="px-4 sm:px-6 lg:px-7 py-6">
+          <!-- DASHBOARD -->
+          <section id="view-dashboard" class="view">
+            <div class="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+              <div class="bg-white rounded-2xl shadow-soft border border-slate-200 p-5">
+                <div class="flex items-start justify-between">
+                  <div>
+                    <p class="text-xs font-bold tracking-wide text-slate-500">TRANSAÇÕES</p>
+                    <p id="kpiTransacoes" class="text-4xl font-extrabold mt-2">0</p>
+                    <p class="text-sm text-fluxo-blue font-semibold mt-1">Total importadas</p>
+                  </div>
+                  <div class="w-14 h-14 rounded-2xl bg-blue-500 text-white flex items-center justify-center text-2xl shadow">
+                    ⇄
+                  </div>
+                </div>
+                <div class="h-1 mt-5 rounded-full bg-blue-500/90"></div>
+              </div>
+
+              <div class="bg-white rounded-2xl shadow-soft border border-slate-200 p-5">
+                <div class="flex items-start justify-between">
+                  <div>
+                    <p class="text-xs font-bold tracking-wide text-slate-500">CONCILIADAS</p>
+                    <p id="kpiConciliadas" class="text-4xl font-extrabold mt-2">0</p>
+                    <p class="text-sm text-fluxo-brand font-semibold mt-1">Matches confirmados</p>
+                  </div>
+                  <div class="w-14 h-14 rounded-2xl bg-fluxo-brand text-white flex items-center justify-center text-2xl shadow">
+                    ✓
+                  </div>
+                </div>
+                <div class="h-1 mt-5 rounded-full bg-fluxo-brand/90"></div>
+              </div>
+
+              <div class="bg-white rounded-2xl shadow-soft border border-slate-200 p-5">
+                <div class="flex items-start justify-between">
+                  <div>
+                    <p class="text-xs font-bold tracking-wide text-slate-500">DIVERGÊNCIAS</p>
+                    <p id="kpiDivergencias" class="text-4xl font-extrabold mt-2">0</p>
+                    <p class="text-sm text-red-600 font-semibold mt-1">Requer revisão</p>
+                  </div>
+                  <div class="w-14 h-14 rounded-2xl bg-red-500 text-white flex items-center justify-center text-2xl shadow">
+                    !
+                  </div>
+                </div>
+                <div class="h-1 mt-5 rounded-full bg-red-500/90"></div>
+              </div>
+
+              <div class="bg-white rounded-2xl shadow-soft border border-slate-200 p-5">
+                <div class="flex items-start justify-between">
+                  <div>
+                    <p class="text-xs font-bold tracking-wide text-slate-500">PENDENTES</p>
+                    <p id="kpiPendentes" class="text-4xl font-extrabold mt-2">0</p>
+                    <p class="text-sm text-amber-600 font-semibold mt-1">Aguardando análise</p>
+                  </div>
+                  <div class="w-14 h-14 rounded-2xl bg-amber-500 text-white flex items-center justify-center text-2xl shadow">
+                    ⏱
+                  </div>
+                </div>
+                <div class="h-1 mt-5 rounded-full bg-amber-500/90"></div>
+              </div>
+            </div>
+
+            <div class="grid gap-5 lg:grid-cols-3 mt-6">
+              <div class="lg:col-span-2 bg-white rounded-2xl shadow-soft border border-slate-200 p-6">
+                <div class="flex items-center justify-between">
+                  <h2 class="text-lg font-extrabold">Conciliações Recentes</h2>
+                  <button
+                    class="text-sm font-bold text-fluxo-brand hover:text-fluxo-brand2"
+                    type="button"
+                    data-go="conciliacoes"
+                  >
+                    Ver todas →
+                  </button>
+                </div>
+
+                <div class="mt-10 text-center text-slate-400">
+                  <p class="text-base">Nenhuma conciliação encontrada</p>
+                </div>
+              </div>
+
+              <div class="space-y-5">
+                <div class="bg-white rounded-2xl shadow-soft border border-slate-200 p-6">
+                  <div class="flex items-start justify-between">
+                    <div>
+                      <p class="text-xs font-bold tracking-wide text-slate-500">VOLUME BANCÁRIO</p>
+                      <p class="text-4xl font-extrabold mt-2">R$ 0,00</p>
+                      <p class="text-sm text-slate-500 mt-1">Total processado</p>
+                    </div>
+                    <div class="w-14 h-14 rounded-2xl bg-slate-600 text-white flex items-center justify-center text-2xl shadow">
+                      $
+                    </div>
+                  </div>
+                  <div class="h-1 mt-5 rounded-full bg-slate-600/90"></div>
+                </div>
+
+                <div class="bg-white rounded-2xl shadow-soft border border-slate-200 p-6">
+                  <div class="flex items-start justify-between">
+                    <div>
+                      <p class="text-xs font-bold tracking-wide text-slate-500">CONCILIAÇÕES</p>
+                      <p class="text-4xl font-extrabold mt-2">0</p>
+                      <p class="text-sm text-fluxo-brand font-semibold mt-1">Realizadas</p>
+                    </div>
+                    <div class="w-14 h-14 rounded-2xl bg-fluxo-brand text-white flex items-center justify-center text-2xl shadow">
+                      ↗
+                    </div>
+                  </div>
+                  <div class="h-1 mt-5 rounded-full bg-fluxo-brand/90"></div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- CONCILIAÇÕES (REMOVIDO TÍTULO DUPLICADO) -->
+          <section id="view-conciliacoes" class="view hidden">
+            <!-- só ações (o título/subtítulo vem do topbar) -->
+            <div class="flex items-center justify-end">
+              <button
+                class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-fluxo-brand text-white hover:bg-fluxo-brand2 shadow"
+                type="button"
+                data-go="importar"
+              >
+                <span class="text-lg">＋</span>
+                <span class="font-semibold">Nova Conciliação</span>
+              </button>
+            </div>
+
+            <div class="mt-6 bg-white rounded-2xl shadow-soft border border-slate-200 p-10 text-center">
+              <div class="text-6xl text-slate-300">📄</div>
+              <p class="text-lg font-bold mt-4">Nenhuma conciliação ainda</p>
+              <p class="text-slate-500 mt-1">Importe seus dados para começar</p>
+
+              <button
+                class="mt-6 inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-fluxo-brand text-white hover:bg-fluxo-brand2 shadow"
+                type="button"
+                data-go="importar"
+              >
+                <span class="text-lg">＋</span>
+                <span class="font-semibold">Importar Dados</span>
+              </button>
+            </div>
+          </section>
+
+          <!-- IMPORTAR DADOS (REMOVIDO TÍTULO DUPLICADO) -->
+          <section id="view-importar" class="view hidden">
+            <form
+              action="/conciliar"
+              method="POST"
+              enctype="multipart/form-data"
+              class="space-y-6"
+            >
+              <div class="bg-white rounded-2xl shadow-soft border border-slate-200 p-6">
+                <label class="block text-sm font-bold text-slate-700">
+                  Nome da Conciliação
+                </label>
+                <input
+                  name="nome_conciliacao"
+                  type="text"
+                  placeholder="Ex: Conciliação Janeiro 2026"
+                  class="mt-2 w-full max-w-xl rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm
+                         focus:outline-none focus:ring-2 focus:ring-fluxo-brand/40"
+                />
+              </div>
+
+              <!-- ✅ NOVO: Período da conciliação (opcional) -->
+              <div class="bg-white rounded-2xl shadow-soft border border-slate-200 p-6">
+                <div class="flex items-start justify-between gap-4 flex-col sm:flex-row">
+                  <div>
+                    <label class="block text-sm font-bold text-slate-700">
+                      Período da conciliação (opcional)
+                    </label>
+                    <p class="text-sm text-slate-500 mt-1">
+                      Se você não preencher, o sistema usa automaticamente o período do extrato (DOC1).
+                    </p>
+                  </div>
+                </div>
+
+                <div class="mt-4 grid gap-4 sm:grid-cols-2 max-w-xl">
+                  <div>
+                    <label class="block text-xs font-bold text-slate-600">Data inicial</label>
+                    <input
+                      name="data_inicial"
+                      type="date"
+                      class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm
+                             focus:outline-none focus:ring-2 focus:ring-fluxo-brand/40"
+                    />
+                  </div>
+
+                  <div>
+                    <label class="block text-xs font-bold text-slate-600">Data final</label>
+                    <input
+                      name="data_final"
+                      type="date"
+                      class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm
+                             focus:outline-none focus:ring-2 focus:ring-fluxo-brand/40"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div class="grid gap-6 lg:grid-cols-2">
+                <div class="bg-white rounded-2xl shadow-soft border border-slate-200 p-6">
+                  <div class="border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center">
+                    <div class="mx-auto w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center text-3xl">
+                      🧾
+                    </div>
+                    <h3 class="text-lg font-extrabold mt-4">Extrato Bancário</h3>
+                    <p class="text-sm text-slate-500 mt-1">
+                      PDF, TXT/CSV ou Excel com: data, descrição e valor
+                    </p>
+
+                    <label
+                      class="mt-5 inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-slate-900 text-white hover:bg-slate-800 cursor-pointer"
+                    >
+                      <span class="text-lg">⇪</span>
+                      <span class="font-semibold">Selecionar arquivo(s)</span>
+                      <input
+                        class="hidden"
+                        type="file"
+                        name="extrato"
+                        id="extrato"
+                        accept=".pdf,.txt,.csv,.xlsx,.xls"
+                        required
+                        multiple
+                      />
+                    </label>
+
+                    <p id="extratoHint" class="text-xs text-slate-400 mt-3">
+                      Nenhum arquivo selecionado
+                    </p>
+                  </div>
+                </div>
+
+                <div class="bg-white rounded-2xl shadow-soft border border-slate-200 p-6">
+                  <div class="border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center">
+                    <div class="mx-auto w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center text-3xl">
+                      🧾
+                    </div>
+                    <h3 class="text-lg font-extrabold mt-4">Lançamentos do Sistema</h3>
+                    <p class="text-sm text-slate-500 mt-1">
+                      PDF, TXT/CSV ou Excel com: data, descrição e valor
+                    </p>
+
+                    <label
+                      class="mt-5 inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-slate-900 text-white hover:bg-slate-800 cursor-pointer"
+                    >
+                      <span class="text-lg">⇪</span>
+                      <span class="font-semibold">Selecionar arquivo(s)</span>
+                      <input
+                        class="hidden"
+                        type="file"
+                        name="controle"
+                        id="controle"
+                        accept=".pdf,.txt,.csv,.xlsx,.xls"
+                        required
+                        multiple
+                      />
+                    </label>
+
+                    <p id="controleHint" class="text-xs text-slate-400 mt-3">
+                      Nenhum arquivo selecionado
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="bg-white rounded-2xl shadow-soft border border-slate-200 p-6">
+                <div class="flex items-start justify-between gap-4 flex-col sm:flex-row">
+                  <div>
+                    <h3 class="text-lg font-extrabold">Arquivo de duplicatas (opcional)</h3>
+                    <p class="text-sm text-slate-500 mt-1">
+                      Ajuda a enriquecer descrições das divergências (nota, duplicata, vencimento).
+                    </p>
+                  </div>
+
+                  <label
+                    class="inline-flex items-center gap-2 px-5 py-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer"
+                  >
+                    <span class="text-lg">⇪</span>
+                    <span class="font-semibold">Selecionar</span>
+                    <input
+                      class="hidden"
+                      type="file"
+                      name="duplicatas"
+                      id="duplicatas"
+                      accept=".pdf,.txt,.csv,.xlsx,.xls"
+                      multiple
+                    />
+                  </label>
+                </div>
+
+                <p id="duplicatasHint" class="text-xs text-slate-400 mt-3">
+                  Nenhum arquivo selecionado
+                </p>
+              </div>
+
+              <div class="pt-2 flex flex-col sm:flex-row sm:items-center gap-3">
+                <button
+                  type="submit"
+                  class="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-fluxo-brand text-white hover:bg-fluxo-brand2 shadow"
+                >
+                  <span class="text-lg">⚙️</span>
+                  <span class="font-semibold">Iniciar conciliação</span>
+                </button>
+
+                <p class="text-sm text-slate-500">
+                  Ao finalizar, você baixa o Excel
+                  <span class="font-mono text-xs">conciliacao_divergencias.xlsx</span>
+                </p>
+              </div>
+            </form>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <!-- ✅ BOTÃO FLUTUANTE DO CHAT (APARECE EM QUALQUER VIEW) -->
+    <button
+      id="chatToggle"
+      class="fixed bottom-5 right-5 z-[60]
+             inline-flex items-center gap-2
+             px-4 py-3 rounded-full
+             bg-fluxo-brand text-white hover:bg-fluxo-brand2
+             shadow-lg shadow-emerald-500/30
+             border border-emerald-200/20"
+      aria-label="Abrir chat IA"
+      type="button"
+    >
+      <span class="text-lg">💬</span>
+      <span class="text-sm font-semibold hidden sm:inline">IA Conciliador</span>
+    </button>
+
+    <!-- CHAT (mesmo que você já tem) -->
     <div
       id="chatWindow"
-      class="hidden fixed inset-0 z-40 flex items-center justify-center px-3 sm:px-6 bg-black/40 fade-in"
+      class="hidden fixed inset-0 z-50 flex items-center justify-center px-3 sm:px-6 bg-black/40 fade-in"
     >
       <div
-        class="w-full max-w-3xl bg-slate-950/95 text-slate-100 rounded-2xl shadow-2xl border border-sky-500/40 backdrop-blur-xl flex flex-col h-[75vh]"
+        class="w-full max-w-3xl bg-slate-950/95 text-slate-100 rounded-2xl shadow-2xl border border-emerald-500/30 backdrop-blur-xl flex flex-col h-[75vh]"
       >
-        <!-- Topo do chat -->
-        <div
-          class="flex items-center justify-between px-3 sm:px-4 py-2.5 border-b border-slate-800 rounded-t-2xl bg-slate-950/95"
-        >
+        <div class="flex items-center justify-between px-3 sm:px-4 py-2.5 border-b border-slate-800 rounded-t-2xl bg-slate-950/95">
           <div class="flex items-center gap-2 sm:gap-3">
-            <div
-              class="w-8 h-8 rounded-full bg-sky-500/20 border border-sky-400/60 flex items-center justify-center text-xs"
-            >
+            <div class="w-8 h-8 rounded-full bg-emerald-500/20 border border-emerald-400/60 flex items-center justify-center text-xs">
               IA
             </div>
             <div>
               <p class="text-xs sm:text-sm font-semibold leading-tight">
                 IA Conciliador Bancário
               </p>
-              <p
-                class="text-[10px] sm:text-[11px] text-emerald-400 flex items-center gap-1"
-              >
-                <span
-                  class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"
-                ></span>
+              <p class="text-[10px] sm:text-[11px] text-emerald-400 flex items-center gap-1">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                 Online · Beta
               </p>
             </div>
           </div>
+
           <button
             id="chatClose"
             class="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-slate-100 rounded-full hover:bg-slate-800 text-lg leading-none"
@@ -313,59 +597,54 @@
           </button>
         </div>
 
-        <!-- Mensagens -->
         <div
           id="chatMessages"
           class="flex-1 flex flex-col gap-2 px-3 sm:px-4 py-3 overflow-y-auto text-xs sm:text-sm"
         ></div>
 
-        <!-- Input + sugestões -->
-        <div
-          class="border-t border-slate-800 px-3 sm:px-4 py-2.5 space-y-2 bg-slate-950/95 rounded-b-2xl"
-        >
+        <div class="border-t border-slate-800 px-3 sm:px-4 py-2.5 space-y-2 bg-slate-950/95 rounded-b-2xl">
           <div class="flex gap-2">
             <input
               id="chatInput"
               type="text"
-              class="flex-1 bg-slate-900/80 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-sky-500 placeholder:text-slate-500"
+              class="flex-1 bg-slate-900/80 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 placeholder:text-slate-500"
               placeholder="Pergunte algo sobre a conciliação..."
             />
             <button
               id="chatSend"
-              class="px-3 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-slate-950 text-xs sm:text-sm font-semibold"
+              class="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs sm:text-sm font-semibold"
             >
               ➤
             </button>
           </div>
 
-          <!-- Botões rápidos -->
           <div class="flex flex-wrap gap-1.5">
             <button
-              class="chat-quick text-[10px] sm:text-xs px-2.5 py-1 rounded-full bg-slate-900 border border-slate-700 hover:border-sky-500"
+              class="chat-quick text-[10px] sm:text-xs px-2.5 py-1 rounded-full bg-slate-900 border border-slate-700 hover:border-emerald-500"
               data-key="como_enviar"
             >
               Como enviar os PDFs?
             </button>
             <button
-              class="chat-quick text-[10px] sm:text-xs px-2.5 py-1 rounded-full bg-slate-900 border border-slate-700 hover:border-sky-500"
+              class="chat-quick text-[10px] sm:text-xs px-2.5 py-1 rounded-full bg-slate-900 border border-slate-700 hover:border-emerald-500"
               data-key="resultado"
             >
               O que eu recebo?
             </button>
             <button
-              class="chat-quick text-[10px] sm:text-xs px-2.5 py-1 rounded-full bg-slate-900 border border-slate-700 hover:border-sky-500"
+              class="chat-quick text-[10px] sm:text-xs px-2.5 py-1 rounded-full bg-slate-900 border border-slate-700 hover:border-emerald-500"
               data-key="duplicatas"
             >
               E o arquivo de duplicatas?
             </button>
             <button
-              class="chat-quick text-[10px] sm:text-xs px-2.5 py-1 rounded-full bg-slate-900 border border-slate-700 hover:border-sky-500"
+              class="chat-quick text-[10px] sm:text-xs px-2.5 py-1 rounded-full bg-slate-900 border border-slate-700 hover:border-emerald-500"
               data-key="resumo"
             >
               Resumo rápido
             </button>
             <button
-              class="chat-quick text-[10px] sm:text-xs px-2.5 py-1 rounded-full bg-slate-900 border border-slate-700 hover:border-sky-500"
+              class="chat-quick text-[10px] sm:text-xs px-2.5 py-1 rounded-full bg-slate-900 border border-slate-700 hover:border-emerald-500"
               data-key="detalhes_tecnicos"
             >
               Detalhes técnicos
@@ -375,7 +654,13 @@
       </div>
     </div>
 
-    <!-- Script do agente de chat -->
+    <!-- ✅ Root do modal Configurações/Admin -->
+    <div id="settingsModalRoot"></div>
+
+    <!-- JS do layout -->
+    <script src="app.js"></script>
+
+    <!-- Seu agente de chat (mantido) -->
     <script src="agente.js"></script>
   </body>
 </html>

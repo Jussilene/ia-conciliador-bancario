@@ -2,16 +2,22 @@
   "name": "ia-conciliador-bancario",
   "version": "1.0.0",
   "type": "module",
-  "main": "index.js",
+  "private": true,
   "scripts": {
-    "start": "node src/server.js"
+    "start": "node ./src/server.js",
+    "start:root": "node ./server.js",
+    "where": "node -e \"console.log('cwd=',process.cwd())\"",
+    "ls": "node -e \"const fs=require('fs'); console.log(fs.readdirSync('.'));\""
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
+    "express-session": "^1.19.0",
     "multer": "^2.0.2",
     "openai": "^6.9.1",
-    "pdf-parse": "^1.1.1",
+    "pdf-parse": "^1.1.4",
+    "pdfjs-dist": "^4.10.38",
     "pdfkit": "^0.17.2",
     "xlsx": "^0.18.5"
   }

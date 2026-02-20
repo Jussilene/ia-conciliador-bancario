@@ -1,419 +1,339 @@
 // src/conciliador.js
-import fs from "fs";
 import path from "path";
 import * as XLSX from "xlsx";
-import pdfParse from "pdf-parse";
 import { fileURLToPath } from "url";
-import { openai } from "./openaiClient.js";
+
+import { parseExtrato } from "./parsers/extrato.js";
+import { parseRazao } from "./parsers/razao.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-/**
- * Normaliza caminhos (aceita string ou array).
- */
 function normalizarCaminhos(caminhos) {
   if (!caminhos) return [];
   if (Array.isArray(caminhos)) return caminhos.filter(Boolean);
   return [caminhos];
 }
 
-/**
- * Lê um arquivo (PDF, Excel, TXT, CSV) e devolve TEXTO pronto pra IA.
- */
-async function lerArquivoGenerico(caminho, label = "DOC") {
-  console.log(`📁 [GEN] Lendo ${label}: ${caminho}`);
+function centavosParaPtBR(centavos) {
+  const n = (centavos || 0) / 100;
+  return n.toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
 
-  if (!fs.existsSync(caminho)) {
-    throw new Error(`Arquivo não encontrado: ${caminho}`);
+function limparSnippet(s) {
+  if (!s) return "";
+  let t = String(s).replace(/\s+/g, " ").trim();
+  if (t.length > 80) t = t.slice(0, 80).trim() + "…";
+  return t;
+}
+
+/**
+ * ✅ Helpers de período (filtro)
+ * - dateBR: "dd/mm/aaaa" -> number yyyymmdd
+ * - inputDate: "yyyy-mm-dd" -> number yyyymmdd
+ */
+function dateBRToKey(dateBR) {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(dateBR || "").trim());
+  if (!m) return null;
+  const dd = m[1];
+  const mm = m[2];
+  const yyyy = m[3];
+  return Number(`${yyyy}${mm}${dd}`);
+}
+
+function inputDateToKey(inputDate) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(inputDate || "").trim());
+  if (!m) return null;
+  const yyyy = m[1];
+  const mm = m[2];
+  const dd = m[3];
+  return Number(`${yyyy}${mm}${dd}`);
+}
+
+function extrairPeriodoDoc1(doc1) {
+  let min = null;
+  let max = null;
+
+  for (const it of doc1 || []) {
+    const k = dateBRToKey(it?.dateBR);
+    if (k == null) continue;
+    if (min == null || k < min) min = k;
+    if (max == null || k > max) max = k;
   }
 
-  const buffer = fs.readFileSync(caminho);
-  const ext = (path.extname(caminho) || "").toLowerCase();
-  const magic = buffer.slice(0, 5).toString(); // ex: "%PDF-"
+  return { min, max };
+}
 
-  // ===== PDF (texto ou imagem) =====
-  if (ext === ".pdf" || magic.startsWith("%PDF")) {
-    console.log(`📑 [${label}] Detectado PDF – usando pdf-parse…`);
-    try {
-      const data = await pdfParse(buffer);
-      const texto = (data.text || "").trim();
-      console.log(
-        `🔎 [${label}] Preview texto PDF:\n` +
-          texto.slice(0, 600) +
-          "\n--- FIM PREVIEW ---\n"
+function filtrarPorPeriodo(lancamentos, startKey, endKey) {
+  if (!startKey && !endKey) return lancamentos || [];
+  const s = startKey ?? Number.MIN_SAFE_INTEGER;
+  const e = endKey ?? Number.MAX_SAFE_INTEGER;
+
+  return (lancamentos || []).filter((it) => {
+    const k = dateBRToKey(it?.dateBR);
+    if (k == null) return false;
+    return k >= s && k <= e;
+  });
+}
+
+/**
+ * Monta Map<key, Array<item>> preservando duplicatas.
+ * key = "dd/mm/aaaa|centavos"
+ */
+function buildMapFromLancamentos(lancamentos) {
+  const map = new Map();
+  for (const it of lancamentos || []) {
+    if (!it?.dateBR || it?.valorCentavos == null) continue;
+
+    const key = `${it.dateBR}|${it.valorCentavos}`;
+    const item = {
+      date: it.dateBR,
+      cents: it.valorCentavos,
+      snippet: limparSnippet(it.descricao || ""),
+      origem: it.origem || "",
+    };
+
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(item);
+  }
+  return map;
+}
+
+/**
+ * ✅ Divergências APENAS de 1 lado (DOC2 → DOC1):
+ * - o que existe no controle interno (DOC2) e NÃO existe no extrato (DOC1)
+ * Preserva duplicatas (comparando quantidades por chave).
+ */
+function gerarCsvDivergenciasDeterministico(mapDoc1, mapDoc2) {
+  const header = "Data;Valor;Descrição Doc1;Descrição Doc2;Documento de Origem";
+  const linhas = [header];
+
+  // ✅ SOMENTE: DOC2 que não existe no DOC1 (preserva duplicatas por chave)
+  for (const [key, b] of mapDoc2.entries()) {
+    const a = mapDoc1.get(key) || [];
+    if (a.length >= b.length) continue;
+
+    for (let i = a.length; i < b.length; i++) {
+      const vb = b[i];
+      if (!vb) continue;
+
+      linhas.push(
+        [
+          vb.date,
+          centavosParaPtBR(vb.cents),
+          "Não consta no extrato bancário (DOC1)",
+          vb.snippet || "—",
+          "DOC2",
+        ].join(";")
       );
-      return texto;
-    } catch (err) {
-      console.error(
-        `[${label}] Erro ao ler PDF com pdf-parse:`,
-        err.message
-      );
-      // fallback: devolve string bruta (não é o ideal, mas evita quebrar)
-      const textoBruto = buffer.toString("utf8");
-      console.log(
-        `⚠️ [${label}] Usando fallback de texto bruto do PDF (tamanho ${textoBruto.length}).`
-      );
-      return textoBruto;
     }
   }
 
-  // ===== Excel (.xlsx / .xls) =====
-  if (ext === ".xlsx" || ext === ".xls") {
-    console.log(`📊 [${label}] Detectado Excel – usando xlsx…`);
-    const workbook = XLSX.read(buffer, { type: "buffer" });
-    const sheetName = workbook.SheetNames[0];
-    const sheet = workbook.Sheets[sheetName];
-
-    // Converte a 1ª aba pra CSV de texto, que a IA entende muito bem
-    const csv = XLSX.utils.sheet_to_csv(sheet, { FS: ";", RS: "\n" });
-    console.log(
-      `🔎 [${label}] Preview texto Excel:\n` +
-        csv.slice(0, 600) +
-        "\n--- FIM PREVIEW ---\n"
-    );
-    return csv;
-  }
-
-  // ===== TXT / CSV / outros textos =====
-  const texto = buffer.toString("utf8");
-  console.log(
-    `📄 [${label}] TXT/CSV (ou fallback texto) – tamanho ${texto.length}`
-  );
-  console.log(
-    `🔎 [${label}] Preview texto:\n` +
-      texto.slice(0, 600) +
-      "\n--- FIM PREVIEW ---\n"
-  );
-  return texto;
-}
-
-/**
- * Lê vários arquivos (string ou array) e concatena o texto.
- */
-async function lerVariosArquivosComoTexto(caminhos, labelBase) {
-  const lista = normalizarCaminhos(caminhos);
-  if (lista.length === 0) return "";
-
-  let textoFinal = "";
-  for (let i = 0; i < lista.length; i++) {
-    const caminho = lista[i];
-    const label = `${labelBase}_${i + 1}`;
-    const t = await lerArquivoGenerico(caminho, label);
-    textoFinal += `\n\n===== INÍCIO ${label} =====\n\n${t}`;
-  }
-  return textoFinal.trim();
-}
-
-/**
- * Limita o texto para não estourar os limites de tokens da OpenAI.
- * maxChars ~ 60.000 ≈ ~15k tokens (aproximado).
- */
-function limitarTextoParaIA(texto, maxChars, nomeDoc) {
-  if (!texto) return "";
-  if (texto.length <= maxChars) return texto;
-
-  console.log(
-    `⚠️ ${nomeDoc} muito grande (${texto.length} caracteres). ` +
-      `Será truncado para ${maxChars} caracteres para não estourar tokens.`
-  );
-
-  return (
-    texto.slice(0, maxChars) +
-    `\n\n[AVISO: Conteúdo truncado automaticamente para caber no limite da IA.]`
-  );
-}
-
-/**
- * Limpa e extrai só o bloco CSV do texto retornado pela IA.
- */
-function extrairBlocoCsv(texto) {
-  if (!texto) return "";
-
-  // Se vier entre ```csv ... ```
-  const cercado = texto.match(/```(?:csv)?([\s\S]*?)```/i);
-  if (cercado) {
-    texto = cercado[1];
-  }
-
-  // Força a começar no cabeçalho esperado
-  const headerRegex =
-    /^Data;Valor;Descrição Doc1;Descrição Doc2;Documento de Origem.*$/m;
-  const m = texto.match(headerRegex);
-  if (m && typeof m.index === "number") {
-    texto = texto.slice(m.index);
-  }
-
-  return texto.trim();
-}
-
-/**
- * Chama a IA pra gerar um CSV de divergências (formato Ronaldo).
- */
-async function gerarCsvDivergenciasComIA(
-  extratoTexto,
-  controleTexto,
-  duplicatasTexto
-) {
-  console.log("🧠 Chamando a IA para gerar o CSV de divergências…");
-
-  const systemPrompt = `
-Você é um especialista em conciliação bancária extremamente rigoroso.
-
-Sua tarefa:
-- Comparar o EXTRATO BANCÁRIO (DOC1) com o CONTROLE INTERNO / RAZÃO (DOC2).
-- Opcionalmente usar o arquivo de DUPLICATAS (DOC3) apenas para enriquecer descrições.
-
-REGRAS DE CONCILIAÇÃO (SEJA MUITO RÍGIDO):
-- Considere como "mesmo lançamento" somente quando DATA (dd/mm/aaaa) e VALOR são exatamente iguais.
-- Se a data e o valor forem iguais em DOC1 e DOC2, considere o lançamento conciliado (NÃO é divergência), mesmo que o texto da descrição seja um pouco diferente.
-- Só gere divergência se:
-  * existir em DOC1 e não existir nenhuma linha correspondente em DOC2 com a mesma DATA e VALOR; ou
-  * existir em DOC2 e não existir nenhuma linha correspondente em DOC1 com a mesma DATA e VALOR; ou
-  * existir em ambos, mas com mesma DATA e descrições semelhantes, porém VALORES diferentes.
-- NÃO invente divergências. Se estiver em dúvida se é ou não divergência, considere como conciliado e NÃO inclua no CSV.
-
-PREENCHIMENTO INTELIGENTE DAS DESCRIÇÕES:
-- Descrição Doc1:
-    - Se o lançamento existir em DOC1, use a melhor descrição possível a partir de DOC1.
-    - Se o lançamento não existir em DOC1 (só existe em DOC2), preencha com: "Não consta no extrato bancário (DOC1)".
-- Descrição Doc2:
-    - Se o lançamento existir em DOC2, use a melhor descrição possível a partir de DOC2.
-    - Se o lançamento não existir em DOC2 (só existe em DOC1), preencha com: "Não consta no controle interno (DOC2)".
-
-Documento de Origem:
-- "DOC1" se só existe no extrato.
-- "DOC2" se só existe no controle interno.
-- "AMBOS" se existe nos dois, mas há diferença de valor ou de tipo.
-
-Formato de saída OBRIGATÓRIO (CSV, separado por ponto e vírgula):
-A PRIMEIRA LINHA deve ser exatamente:
-Data;Valor;Descrição Doc1;Descrição Doc2;Documento de Origem
-
-Cada linha seguinte representa UMA divergência:
-- Data: data do lançamento divergente (dd/mm/aaaa).
-- Valor: valor do lançamento divergente com vírgula como separador decimal (ex: 1.234,56), sem "D" ou "C".
-- Descrição Doc1: conforme regra acima.
-- Descrição Doc2: conforme regra acima.
-- Documento de Origem: "DOC1", "DOC2" ou "AMBOS".
-
-NÃO inclua comentários, cabeçalhos extras ou texto fora do CSV.
-Se não houver divergências, retorne apenas a linha de cabeçalho.
-`.trim();
-
-  const userPrompt = `
-[DOC1 - EXTRATO BANCÁRIO]
-${extratoTexto}
-
-[DOC2 - CONTROLE INTERNO / RAZÃO]
-${controleTexto}
-
-${
-  duplicatasTexto
-    ? `[DOC3 - RELATÓRIO DE DUPLICATAS]
-${duplicatasTexto}`
-    : ""
-}
-
-Siga rigorosamente as regras e gere o CSV de divergências no formato especificado.
-`.trim();
-
-  const response = await openai.responses.create({
-    model: "gpt-4.1-mini",
-    input: [
-      {
-        role: "system",
-        content: [{ type: "input_text", text: systemPrompt }],
-      },
-      {
-        role: "user",
-        content: [{ type: "input_text", text: userPrompt }],
-      },
-    ],
+  const dados = linhas.slice(1);
+  dados.sort((a, b) => {
+    const [da, va] = a.split(";");
+    const [db, vb] = b.split(";");
+    const ka = da.split("/").reverse().join("") + "|" + va;
+    const kb = db.split("/").reverse().join("") + "|" + vb;
+    return ka.localeCompare(kb, "pt-BR");
   });
 
-  const textoSaida = response.output[0]?.content[0]?.text || "";
-  const csvLimpo = extrairBlocoCsv(textoSaida);
-
-  console.log(
-    "✅ CSV recebido da IA (preview):\n" +
-      csvLimpo.slice(0, 400) +
-      "\n--- FIM PREVIEW CSV ---\n"
-  );
-
-  return csvLimpo;
+  return [header, ...dados].join("\n");
 }
 
-/**
- * Converte o CSV (texto) em matriz (array de arrays) para gerar o Excel.
- * Garante SEMPRE 5 colunas e preenche descrições de forma inteligente.
- */
 function csvParaMatriz(csvTexto) {
-  const linhas = csvTexto
+  const linhas = String(csvTexto || "")
     .split(/\r?\n/)
     .map((l) => l.trim())
     .filter((l) => l.length > 0);
 
   if (linhas.length === 0) {
-    // Garante pelo menos o cabeçalho
-    return [
-      [
-        "Data",
-        "Valor",
-        "Descrição Doc1",
-        "Descrição Doc2",
-        "Documento de Origem",
-      ],
-    ];
+    return [["Data", "Valor", "Descrição Doc1", "Descrição Doc2", "Documento de Origem"]];
   }
 
   const matriz = linhas.map((linha, idx) => {
     let cols = linha.split(";").map((c) => c.trim());
 
-    // Cabeçalho: só forçamos o tamanho, não mexemos no texto
     if (idx === 0) {
       while (cols.length < 5) cols.push("");
       return cols.slice(0, 5);
     }
 
-    // Linhas de dados: garantir 5 colunas
     while (cols.length < 5) cols.push("");
     if (cols.length > 5) {
       const extras = cols.splice(5);
-      // Junta qualquer coisa que sobrou na descrição do DOC2
       cols[3] = `${cols[3]} ${extras.join(" ")}`.trim();
-    }
-
-    // Preenchimento inteligente das descrições se a IA deixou vazio
-    const docOrigem = (cols[4] || "").toUpperCase();
-
-    if (!cols[2]) {
-      if (docOrigem === "DOC2") {
-        cols[2] = "Não consta no extrato bancário (DOC1)";
-      } else {
-        cols[2] = "—";
-      }
-    }
-
-    if (!cols[3]) {
-      if (docOrigem === "DOC1") {
-        cols[3] = "Não consta no controle interno (DOC2)";
-      } else {
-        cols[3] = "—";
-      }
     }
 
     return cols.slice(0, 5);
   });
 
-  // Remove linhas duplicadas de divergência (se a IA repetir algo)
-  const header = matriz[0];
-  const dados = matriz.slice(1);
-  const vistos = new Set();
-  const deduplicados = [];
+  return matriz;
+}
 
-  for (const row of dados) {
-    const key = row.join("|").toLowerCase();
-    if (vistos.has(key)) continue;
-    vistos.add(key);
-    deduplicados.push(row);
+async function parsePair(extratos, controles) {
+  let doc1 = [];
+  for (const p of extratos) {
+    const itens = await parseExtrato(p);
+    doc1 = doc1.concat(itens || []);
   }
 
-  return [header, ...deduplicados];
+  let doc2 = [];
+  for (const p of controles) {
+    const itens = await parseRazao(p);
+    doc2 = doc2.concat(itens || []);
+  }
+
+  return { doc1, doc2 };
 }
 
 /**
- * Função principal chamada pelo server.js
- * Aceita string OU array de caminhos para cada documento.
+ * ✅ NOVO (apenas métricas): conta matches determinísticos (data+valor) preservando duplicatas.
+ * NÃO altera nada no matching, só mede.
  */
-export async function rodarConciliacao(
+function contarMatchesDeterministic(mapDoc1, mapDoc2) {
+  let matches = 0;
+  for (const [key, arr2] of mapDoc2.entries()) {
+    const arr1 = mapDoc1.get(key) || [];
+    matches += Math.min(arr1.length, arr2.length);
+  }
+  return matches;
+}
+
+/**
+ * ✅ NOVO (apenas métricas): volume do DOC1 (extrato)
+ */
+function calcularVolumeDoc1(doc1) {
+  let abs = 0;
+  let net = 0;
+  for (const it of doc1 || []) {
+    const c = Number(it?.valorCentavos);
+    if (!Number.isFinite(c)) continue;
+    net += c;
+    abs += Math.abs(c);
+  }
+  return { absCentavos: abs, netCentavos: net };
+}
+
+// ✅ FUNÇÃO (sem export aqui)
+async function rodarConciliacao(
   caminhosExtrato,
   caminhosControle,
-  caminhosDuplicatas // opcional
+  caminhosDuplicatas,
+  options = {}
 ) {
-  console.log(
-    "🔄 Iniciando conciliação (com IA + leitura universal + múltiplos arquivos)…"
-  );
+  console.log("🔄 Iniciando conciliação (DETERMINÍSTICA: data + valor)…");
 
-  // 1) Ler arquivos como texto (universal + múltiplos)
-  let extratoTexto = await lerVariosArquivosComoTexto(
-    caminhosExtrato,
-    "DOC1_EXTRATO"
-  );
-  let controleTexto = await lerVariosArquivosComoTexto(
-    caminhosControle,
-    "DOC2_CONTROLE"
-  );
-  let duplicatasTexto = await lerVariosArquivosComoTexto(
-    caminhosDuplicatas,
-    "DOC3_DUPLICATAS"
-  );
+  const extratos = normalizarCaminhos(caminhosExtrato);
+  const controles = normalizarCaminhos(caminhosControle);
 
-  if (!duplicatasTexto) {
+  let { doc1, doc2 } = await parsePair(extratos, controles);
+
+  // blindagem auto-swap se vier 0/0
+  if ((doc1.length === 0 && doc2.length === 0) && extratos.length && controles.length) {
+    console.warn("⚠️ DOC1 e DOC2 vieram vazios. Tentando auto-swap (extrato ↔ controle)...");
+    const swapped = await parsePair(controles, extratos);
+
+    const normalScore = doc1.length + doc2.length;
+    const swapScore = swapped.doc1.length + swapped.doc2.length;
+
+    if (swapScore > normalScore) {
+      console.warn("✅ Auto-swap aplicado: os arquivos estavam invertidos no upload.");
+      doc1 = swapped.doc1;
+      doc2 = swapped.doc2;
+    } else {
+      console.warn("⚠️ Auto-swap não ajudou. Provável problema de parse dos PDFs/formatos.");
+    }
+  }
+
+  // ✅ AQUI É O ÚNICO AJUSTE: aplicar o filtro de período (se existir)
+  // - se usuário não informou, usa período do DOC1 (extrato) automaticamente
+  const userStartKey = inputDateToKey(options?.dataInicial);
+  const userEndKey = inputDateToKey(options?.dataFinal);
+
+  const { min: doc1Min, max: doc1Max } = extrairPeriodoDoc1(doc1);
+
+  let startKey = null;
+  let endKey = null;
+
+  if (doc1Min != null && doc1Max != null) {
+    if (!userStartKey && !userEndKey) {
+      startKey = doc1Min;
+      endKey = doc1Max;
+    } else {
+      startKey = userStartKey ?? doc1Min;
+      endKey = userEndKey ?? doc1Max;
+    }
+
+    doc1 = filtrarPorPeriodo(doc1, startKey, endKey);
+    doc2 = filtrarPorPeriodo(doc2, startKey, endKey);
+
     console.log(
-      "ℹ️ Nenhum arquivo de duplicatas enviado (isso é opcional)."
+      `🗓️ Período aplicado (yyyymmdd): ${startKey} → ${endKey} (base: ${
+        !userStartKey && !userEndKey ? "DOC1" : "usuário+DOC1"
+      })`
     );
+  } else {
+    console.warn("⚠️ Não foi possível determinar período do DOC1. Filtro de datas ignorado.");
   }
 
-  // 2) Limitar tamanho pra não estourar tokens (bem conservador)
-  const MAX_CHARS = 60000; // por documento
-  extratoTexto = limitarTextoParaIA(extratoTexto, MAX_CHARS, "DOC1_EXTRATO");
-  controleTexto = limitarTextoParaIA(
-    controleTexto,
-    MAX_CHARS,
-    "DOC2_CONTROLE"
-  );
-  if (duplicatasTexto) {
-    duplicatasTexto = limitarTextoParaIA(
-      duplicatasTexto,
-      MAX_CHARS,
-      "DOC3_DUPLICATAS"
-    );
+  console.log(`📌 DOC1 lançamentos parseados: ${doc1.length}`);
+  console.log(`📌 DOC2 lançamentos parseados: ${doc2.length}`);
+
+  const mapDoc1 = buildMapFromLancamentos(doc1);
+  const mapDoc2 = buildMapFromLancamentos(doc2);
+
+  if (process.env.DEBUG_EXTRATO === "1") {
+    for (const [key] of mapDoc2.entries()) {
+      if (!mapDoc1.has(key)) console.log(`🧪 [MATCH] DOC1 NÃO TEM chave do DOC2 => ${key}`);
+    }
   }
 
-  // 🔧 Normalização simples de espaços para evitar ruídos
-  extratoTexto = extratoTexto.replace(/\s+/g, " ");
-  controleTexto = controleTexto.replace(/\s+/g, " ");
-  if (duplicatasTexto) {
-    duplicatasTexto = duplicatasTexto.replace(/\s+/g, " ");
-  }
-
-  // 3) IA gera o CSV de divergências
-  const csvDivergencias = await gerarCsvDivergenciasComIA(
-    extratoTexto,
-    controleTexto,
-    duplicatasTexto || null
-  );
-
-  // 4) CSV → matriz para planilha
+  const csvDivergencias = gerarCsvDivergenciasDeterministico(mapDoc1, mapDoc2);
   const matriz = csvParaMatriz(csvDivergencias);
 
   const totalDivergencias = matriz.length > 1 ? matriz.length - 1 : 0;
   const temDivergencias = totalDivergencias > 0;
 
-  console.log(
-    `📊 Total de divergências apontadas pela IA: ${totalDivergencias}`
-  );
+  console.log(`📊 Total de divergências (determinístico): ${totalDivergencias}`);
 
-  // 5) Gerar Excel
   const planilha = XLSX.utils.aoa_to_sheet(matriz);
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, planilha, "Divergencias");
 
-  const outputPath = path.join(
-    __dirname,
-    "..",
-    "uploads",
-    "conciliacao_divergencias.xlsx"
-  );
+  const outputFileName = options?.outputFileName || "conciliacao_divergencias.xlsx";
+  const outputPath = path.join(__dirname, "..", "uploads", outputFileName);
 
   XLSX.writeFile(workbook, outputPath);
   console.log("✅ Excel criado em:", outputPath);
 
-  // 6) Retorno pro server.js
+  // ✅ NOVO: métricas (NÃO muda conciliação)
+  const matches_count = contarMatchesDeterministic(mapDoc1, mapDoc2);
+  const { absCentavos: volume_doc1_abs_centavos, netCentavos: volume_doc1_liquido_centavos } =
+    calcularVolumeDoc1(doc1);
+
+  const doc1_count = doc1.length;
+  const doc2_count = doc2.length;
+  const transacoes_count = doc1_count + doc2_count;
+
   return {
     outputPath,
     temDivergencias,
     totalDivergencias,
+    csvDivergencias,
+
+    // ✅ NOVO: usados no dashboard
+    doc1_count,
+    doc2_count,
+    transacoes_count,
+    matches_count,
+    volume_doc1_abs_centavos,
+    volume_doc1_liquido_centavos,
   };
 }
+
+// ✅ EXPORT GARANTIDO
+export { rodarConciliacao };

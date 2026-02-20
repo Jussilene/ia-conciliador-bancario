@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Concilia • Redefinir senha</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              fluxo: { brand: "#16A34A", brand2: "#22C55E" },
+            },
+          },
+        },
+      };
+    </script>
+  </head>
+
+  <body class="min-h-screen bg-slate-100 flex items-center justify-center p-4">
+    <div class="w-full max-w-lg bg-white rounded-2xl border border-slate-200 shadow-xl p-6">
+      <h1 class="text-2xl font-extrabold">Redefinir senha</h1>
+      <p class="text-slate-500 mt-2 text-sm">Digite sua nova senha.</p>
+
+      <div class="mt-5 space-y-3">
+        <input id="pass1" type="password" class="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-fluxo-brand/40" placeholder="Nova senha" />
+        <input id="pass2" type="password" class="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-fluxo-brand/40" placeholder="Confirmar senha" />
+        <button id="save" class="w-full rounded-xl bg-fluxo-brand text-white py-3 font-bold hover:bg-fluxo-brand2">Salvar</button>
+
+        <p id="msg" class="text-sm text-red-600 hidden"></p>
+        <p id="ok" class="text-sm text-emerald-600 hidden font-bold"></p>
+      </div>
+    </div>
+
+    <script>
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get("token");
+
+      const msg = document.getElementById("msg");
+      const ok = document.getElementById("ok");
+
+      function show(el, text) {
+        el.textContent = text;
+        el.classList.remove("hidden");
+      }
+      function hide(el) {
+        el.textContent = "";
+        el.classList.add("hidden");
+      }
+
+      document.getElementById("save")?.addEventListener("click", async () => {
+        hide(msg); hide(ok);
+
+        if (!token) {
+          show(msg, "Token inválido.");
+          return;
+        }
+
+        const p1 = document.getElementById("pass1").value || "";
+        const p2 = document.getElementById("pass2").value || "";
+        if (p1.length < 6) {
+          show(msg, "A senha deve ter pelo menos 6 caracteres.");
+          return;
+        }
+        if (p1 !== p2) {
+          show(msg, "As senhas não conferem.");
+          return;
+        }
+
+        const r = await fetch("/api/auth/reset", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token, newPassword: p1 }),
+        });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          show(msg, data?.error || "Falha ao redefinir.");
+          return;
+        }
+
+        show(ok, "Senha redefinida com sucesso! Redirecionando para login...");
+        setTimeout(() => (window.location.href = "/login"), 900);
+      });
+    </script>
+  </body>
+</html>

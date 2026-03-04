@@ -18,7 +18,7 @@ export async function parseRazao(filePath) {
   if (ext === ".csv" || ext === ".txt") return parseRazaoText(buffer.toString("utf8"));
 
   if (ext === ".pdf" || magic.startsWith("%PDF")) {
-    const text = await safeExtractPdfText(buffer, "DOC2_RAZAO");
+    const text = await safeExtractPdfText(buffer, "DOC2_RAZAO", { preferPdfJs: true });
     return parseRazaoText(text || "");
   }
 

@@ -13,8 +13,11 @@ const __dirname = path.dirname(__filename);
 
 function normalizarCaminhos(caminhos) {
   if (!caminhos) return [];
-  if (Array.isArray(caminhos)) return caminhos.filter(Boolean);
-  return [caminhos];
+  const arr = Array.isArray(caminhos) ? caminhos : [caminhos];
+  return arr
+    .filter(Boolean)
+    .map((p) => String(p))
+    .sort((a, b) => a.localeCompare(b, "pt-BR"));
 }
 
 function centavosParaPtBR(centavos) {
@@ -104,6 +107,26 @@ function buildMapFromLancamentos(lancamentos) {
   return map;
 }
 
+function ordenarLancamentosDeterministico(lancamentos) {
+  const arr = [...(lancamentos || [])];
+  arr.sort((a, b) => {
+    const ka = [
+      dateBRToKey(a?.dateBR) ?? Number.MAX_SAFE_INTEGER,
+      Number(a?.valorCentavos ?? 0),
+      String(a?.descricao || ""),
+      String(a?.origem || ""),
+    ];
+    const kb = [
+      dateBRToKey(b?.dateBR) ?? Number.MAX_SAFE_INTEGER,
+      Number(b?.valorCentavos ?? 0),
+      String(b?.descricao || ""),
+      String(b?.origem || ""),
+    ];
+    return String(ka).localeCompare(String(kb), "pt-BR");
+  });
+  return arr;
+}
+
 function pushLinhaDivergencia(linhas, item, descricaoDoc1, descricaoDoc2, origem) {
   linhas.push(
     [item.date, centavosParaPtBR(item.cents), descricaoDoc1, descricaoDoc2, origem].join(";")
@@ -163,10 +186,22 @@ function reconciliarPorValor(remDoc1, remDoc2) {
   const nextDoc2 = [];
   let matchedByValue = 0;
 
-  const allValues = new Set([...group1.keys(), ...group2.keys()]);
+  const allValues = [...new Set([...group1.keys(), ...group2.keys()])].sort(
+    (x, y) => Number(x) - Number(y)
+  );
   for (const valueKey of allValues) {
-    const a = group1.get(valueKey) || [];
-    const b = group2.get(valueKey) || [];
+    const a = [...(group1.get(valueKey) || [])].sort((x, y) =>
+      `${dateBRToKey(x?.date) ?? 0}|${x?.snippet || ""}`.localeCompare(
+        `${dateBRToKey(y?.date) ?? 0}|${y?.snippet || ""}`,
+        "pt-BR"
+      )
+    );
+    const b = [...(group2.get(valueKey) || [])].sort((x, y) =>
+      `${dateBRToKey(x?.date) ?? 0}|${x?.snippet || ""}`.localeCompare(
+        `${dateBRToKey(y?.date) ?? 0}|${y?.snippet || ""}`,
+        "pt-BR"
+      )
+    );
 
     while (a.length && b.length) {
       const target = a.shift();
@@ -316,7 +351,25 @@ function enriquecerMatrizComDoc3(matriz, duplicatas) {
   if (!Array.isArray(duplicatas) || !duplicatas.length) return matriz;
 
   // Nao reutiliza o mesmo item de DOC3 para multiplas linhas.
-  const pool = [...duplicatas];
+  const pool = [...duplicatas].sort((a, b) => {
+    const ka = [
+      Number(a?.valorAbsCentavos ?? 0),
+      Number(a?.vencimentoKey ?? 0),
+      String(a?.nf || ""),
+      String(a?.duplicata || ""),
+      String(a?.parcela || ""),
+      String(a?.raw || ""),
+    ];
+    const kb = [
+      Number(b?.valorAbsCentavos ?? 0),
+      Number(b?.vencimentoKey ?? 0),
+      String(b?.nf || ""),
+      String(b?.duplicata || ""),
+      String(b?.parcela || ""),
+      String(b?.raw || ""),
+    ];
+    return String(ka).localeCompare(String(kb), "pt-BR");
+  });
 
   for (let i = 1; i < matriz.length; i++) {
     const linha = matriz[i];
@@ -438,6 +491,9 @@ async function rodarConciliacao(
   } else {
     console.log("ðŸ—“ï¸ Sem perÃ­odo informado. ConciliaÃ§Ã£o em todo o intervalo dos documentos.");
   }
+
+  doc1 = ordenarLancamentosDeterministico(doc1);
+  doc2 = ordenarLancamentosDeterministico(doc2);
 
   console.log(`ðŸ“Œ DOC1 lanÃ§amentos parseados: ${doc1.length}`);
   console.log(`ðŸ“Œ DOC2 lanÃ§amentos parseados: ${doc2.length}`);

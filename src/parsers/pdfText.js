@@ -23,6 +23,7 @@ function itemsToLines(items) {
     if (!s.trim()) continue;
 
     const y = Array.isArray(it.transform) ? it.transform[5] : 0;
+    const x = Array.isArray(it.transform) ? it.transform[4] : 0;
 
     let key = null;
     for (const k of rows.keys()) {
@@ -34,15 +35,19 @@ function itemsToLines(items) {
     if (key == null) key = y;
 
     if (!rows.has(key)) rows.set(key, []);
-    rows.get(key).push(s);
+    rows.get(key).push({ s, x });
   }
 
   const keys = Array.from(rows.keys()).sort((a, b) => b - a);
   const lines = [];
 
   for (const k of keys) {
-    const parts = rows.get(k) || [];
-    const line = parts.join(" ").replace(/\s+/g, " ").trim();
+    const parts = (rows.get(k) || []).sort((a, b) => Number(a.x) - Number(b.x));
+    const line = parts
+      .map((p) => p.s)
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
     if (line) lines.push(line);
   }
 
@@ -108,7 +113,12 @@ async function pdfTextViaPdfJs(inputBuffer, label = "PDF") {
  * - tenta pdf-parse
  * - se falhar OU vier sem “cara de extrato” (sem datas), usa pdfjs
  */
-export async function safeExtractPdfText(buffer, label = "PDF") {
+export async function safeExtractPdfText(buffer, label = "PDF", options = {}) {
+  const preferPdfJs = options?.preferPdfJs === true;
+  if (preferPdfJs) {
+    return await pdfTextViaPdfJs(buffer, label);
+  }
+
   try {
     const data = await pdfParse(buffer);
     const txt = String(data?.text || "").trim();

@@ -42,11 +42,8 @@ function parseRazaoXlsx(buffer) {
   return out;
 }
 
-/**
- * ✅ NOVO (isolado): detecta TXT/CSV "Data;Descricao;Valor;Tipo" e normaliza para:
- * "Data Descricao Valor Tipo"
- * Sem mexer na lógica de parseLinhaRazao().
- */
+// Detecta TXT/CSV "Data;Descricao;Valor;Tipo" e normaliza para:
+// "Data Descricao Valor Tipo"
 function normalizeDelimitedIfNeeded(lines) {
   if (!lines || !lines.length) return lines;
 
@@ -60,7 +57,13 @@ function normalizeDelimitedIfNeeded(lines) {
   const out = [];
   for (const l of lines) {
     const low = String(l).toLowerCase();
-    if (low.startsWith("data") && (low.includes("descricao") || low.includes("descrição")) && low.includes("valor")) continue;
+    if (
+      low.startsWith("data") &&
+      (low.includes("descricao") || low.includes("descri")) &&
+      low.includes("valor")
+    ) {
+      continue;
+    }
     if (low.startsWith("raz") && low.includes("fict")) continue;
 
     const cols = String(l).split(delim).map((c) => cleanLine(c));
@@ -91,7 +94,6 @@ function parseRazaoText(text) {
     .map(cleanLine)
     .filter(Boolean);
 
-  // ✅ AJUSTE: se for TXT/CSV delimitado, normaliza
   lines = normalizeDelimitedIfNeeded(lines);
 
   const out = [];
@@ -102,11 +104,9 @@ function parseRazaoText(text) {
   return out;
 }
 
-/**
- * ✅ Determinístico: usa o que está na LINHA.
- * - se vier "D" ou "C", usa.
- * - se não vier, decide por palavras (Pagamento/Débito -> D; Recebimento/Crédito -> C).
- */
+// Usa o que esta na linha.
+// - se vier "D" ou "C", usa
+// - senao: tenta inferir por sinal/palavras
 function parseLinhaRazao(line) {
   if (!isLinhaLancamentoRazao(line)) return [];
 
@@ -118,12 +118,10 @@ function parseLinhaRazao(line) {
   const dateISO = parseDateBRToISO(dateBR);
   if (!dateISO) return [];
 
-  // Pega valores monetários na linha (podem existir 1 ou mais; aqui pegamos o "mais provável")
-  const reValorComDC = /(\d{1,3}(?:\.\d{3})*,\d{2}|\d+,\d{2}|\d+\.\d{2})\s*([DC])?\b/gi;
+  const reValorComDC = /([+-]?(?:\d{1,3}(?:\.\d{3})*,\d{2}|\d+,\d{2}|\d+\.\d{2}))\s*([DC])?\b/gi;
 
   const valores = [];
   reValorComDC.lastIndex = 0;
-
   let mv;
   while ((mv = reValorComDC.exec(rest))) {
     valores.push({
@@ -134,9 +132,16 @@ function parseLinhaRazao(line) {
   if (valores.length === 0) return [];
 
   const ctx = {
-    temDebito: /\bd[eé]bito\b/i.test(rest) || /\bpagamento\b/i.test(rest),
-    temCredito: /\bcr[eé]dito\b/i.test(rest) || /\breceb(imento|i)\b/i.test(rest),
-    linha: rest,
+    temDebito:
+      /\bd[e\u00E9]bito\b/i.test(rest) ||
+      /\bpagamento\b/i.test(rest) ||
+      /\btarifa\b/i.test(rest) ||
+      /\bjuros\b/i.test(rest) ||
+      /\bmensalidade\b/i.test(rest),
+    temCredito:
+      /\bcr[e\u00E9]dito\b/i.test(rest) ||
+      /\breceb(imento|i)\b/i.test(rest) ||
+      /\bdeposito\b/i.test(rest),
   };
 
   const picked = escolherValorRazao(valores, ctx);
@@ -145,8 +150,7 @@ function parseLinhaRazao(line) {
   const abs = parseValorBRToCentavos(picked.valorBR);
   if (abs == null || abs === 0) return [];
 
-  const valorCentavos =
-    picked.tipo === "D" ? -Math.abs(abs) : Math.abs(abs);
+  const valorCentavos = picked.tipo === "D" ? -Math.abs(abs) : Math.abs(abs);
 
   return [
     {
@@ -162,36 +166,28 @@ function parseLinhaRazao(line) {
 
 function isLinhaLancamentoRazao(line) {
   const t = String(line || "");
-  if (/^raz[aã]o/i.test(t)) return false;
+  if (/^raz[a\u00E3]o/i.test(t)) return false;
   if (/^empresa:/i.test(t)) return false;
   if (/^cnpj:/i.test(t)) return false;
-  if (/^per[ií]odo:/i.test(t)) return false;
+  if (/^per[i\u00ED]odo:/i.test(t)) return false;
   if (/^data\s*\|/i.test(t)) return false;
-  if (/^data\b.*hist[oó]rico/i.test(t)) return false;
-  return /^\d{2}\/\d{2}\/\d{4}\b/.test(t); // só considera linhas que começam com data
+  if (/^data\b.*hist[o\u00F3]rico/i.test(t)) return false;
+  return /^\d{2}\/\d{2}\/\d{4}\b/.test(t);
 }
 
-/**
- * Heurística para razão (sem inventar):
- * - se tiver 2+ valores: pega o primeiro não-zero (normalmente débito/crédito antes do saldo)
- * - tipo:
- *   - se veio D/C na captura -> usa
- *   - senão: ctx.temDebito => D; ctx.temCredito => C; senão C
- */
 function escolherValorRazao(valores, ctx = {}) {
-  const normZero = (v) =>
-    String(v || "").replace(/\./g, "").replace(",", ".").trim() === "0.00";
+  const normZero = (v) => Math.abs(Number(parseValorBRToCentavos(v) || 0)) === 0;
 
-  const tipoPorTexto = () => {
+  const tipoPorTexto = (valorBR = "") => {
+    if (/^-/.test(String(valorBR).trim())) return "D";
     if (ctx.temDebito && !ctx.temCredito) return "D";
     if (ctx.temCredito && !ctx.temDebito) return "C";
-    // se tiver ambos ou nenhum, não dá pra cravar 100% -> assume C (consistente)
     return "C";
   };
 
   const pickComTipo = (obj) => ({
     valorBR: obj.valorBR,
-    tipo: obj.tipo || tipoPorTexto(),
+    tipo: obj.tipo || tipoPorTexto(obj.valorBR),
   });
 
   if (!valores || valores.length === 0) return null;
@@ -200,11 +196,9 @@ function escolherValorRazao(valores, ctx = {}) {
     typeof v === "string" ? { valorBR: v, tipo: null } : v
   );
 
-  // pega primeiro não-zero
   for (const v of norm) {
     if (v?.valorBR && !normZero(v.valorBR)) return pickComTipo(v);
   }
 
-  // fallback
   return pickComTipo(norm[0]);
 }

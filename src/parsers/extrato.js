@@ -71,7 +71,14 @@ function preprocessText(text) {
   t = t.replace(/([^\n])(\d{2}\/\d{2}\/\d{4}\b)/g, "$1\n$2");
 
   // ✅ DESGRUDAR: "04/08/2025031537" -> "04/08/2025 031537"
-  t = t.replace(/(\d{2}\/\d{2}\/\d{4})(\d{5,7})/g, "$1 $2");
+  t = t.replace(/(\d{2}\/\d{2}\/\d{4})(\d{5,20})/g, "$1 $2");
+
+  // ✅ DESGRUDAR documento + valor no padrão BB:
+  // "Boleto80.101964,92 D" -> "Boleto 80.101 964,92 D"
+  t = t.replace(
+    /([A-Za-zÀ-ÿ])(\d{2}\.\d{3})(\d{1,3}(?:\.\d{3})*,\d{2})\s*([DC])/g,
+    "$1 $2 $3 $4"
+  );
 
   // ✅ DESGRUDAR: "031537ENVIO" -> "031537 ENVIO"
   t = t.replace(/(\d{5,7})([A-Za-zÀ-ÿ])/g, "$1 $2");
@@ -171,11 +178,71 @@ function parseLinhaExtrato(line) {
   const caixa = parseLinhaExtratoCaixa(line);
   if (caixa.length) return caixa;
 
-  // 2) fallback: formato simples fictício (sem Nr Mov e sem saldo)
+  // 2) tenta Banco do Brasil (valor único + D/C)
+  const bb = parseLinhaExtratoBancoBrasil(line);
+  if (bb.length) return bb;
+
+  // 3) fallback: formato simples fictício (sem Nr Mov e sem saldo)
   const simples = parseLinhaExtratoSimples(line);
   if (simples.length) return simples;
 
   return [];
+}
+
+function parseLinhaExtratoBancoBrasil(line) {
+  const t = String(line || "").trim();
+  if (!t) return [];
+  if (!/^\d{2}\/\d{2}\/\d{4}\b/.test(t)) return [];
+  if (!/^\d{2}\/\d{2}\/\d{4}\s*\d{8,}/.test(t)) return [];
+
+  const low = t.toLowerCase();
+  if (low.includes("saldo anterior")) return [];
+  if (low.includes("saldo dia")) return [];
+  if (low.includes("bb rende")) return [];
+  if (/rende\s*f[aá]cil/i.test(t)) return [];
+
+  const m = t.match(/^(\d{2}\/\d{2}\/\d{4})\s*(\d{8,})\s+(.*)$/);
+  if (!m) return [];
+
+  const dateBR = m[1];
+  const dateISO = parseDateBRToISO(dateBR);
+  if (!dateISO) return [];
+
+  let rest = cleanLine(m[3] || "");
+  if (!rest) return [];
+
+  // corrige casos de documento colado no valor
+  rest = rest.replace(
+    /(\d{2}\.\d{3})(\d{1,3}(?:\.\d{3})*,\d{2})\s*([DC])\b/g,
+    "$1 $2 $3"
+  );
+
+  // usa o último valor com D/C da linha
+  const mv = rest.match(
+    /(.*?)([+-]?(?:\d{1,3}(?:\.\d{3})*,\d{2}|\d+,\d{2}))\s*([DC])\b(?:\s+.*)?$/i
+  );
+  if (!mv) return [];
+
+  const desc = cleanLine(mv[1] || "");
+  const valorBR = mv[2];
+  const dc = String(mv[3] || "").toUpperCase();
+  if (!desc) return [];
+  if (/rende\s*f[aá]cil/i.test(desc)) return [];
+
+  let valorCentavos = parseValorBRToCentavos(valorBR);
+  if (valorCentavos == null || valorCentavos === 0) return [];
+  valorCentavos = dc === "D" ? -Math.abs(valorCentavos) : Math.abs(valorCentavos);
+
+  return [
+    {
+      dateISO,
+      dateBR,
+      valorCentavos,
+      valorBR,
+      descricao: desc,
+      origem: "DOC1",
+    },
+  ];
 }
 
 /**
@@ -223,6 +290,7 @@ function parseLinhaExtratoCaixa(line) {
   // filtros finais
   if (/\bSALDO\s+DIA\b/i.test(desc)) return [];
   if (/\bRESG\s+AUT\b/i.test(desc)) return [];
+  if (/rende\s*f[aá]cil/i.test(desc)) return [];
 
   return [
     {
@@ -245,7 +313,7 @@ function parseLinhaExtratoSimples(line) {
   if (!isLinhaLancamentoExtratoSimples(line)) return [];
 
   const m = line.match(
-    /^(\d{2}\/\d{2}\/\d{4})\s+(.+?)\s+(\d{1,3}(?:\.\d{3})*,\d{2}|\d+,\d{2})\s+([DC])\b/i
+    /^(\d{2}\/\d{2}\/\d{4})\s+(.+?)\s+([+-]?(?:\d{1,3}(?:\.\d{3})*,\d{2}|\d+,\d{2}|\d+\.\d{2}))(?:\s+([DC]))?\b/i
   );
   if (!m) return [];
 
@@ -260,14 +328,18 @@ function parseLinhaExtratoSimples(line) {
   let valorCentavos = parseValorBRToCentavos(valorBR);
   if (valorCentavos == null) return [];
 
-  if (dc === "D") valorCentavos = -Math.abs(valorCentavos);
-  if (dc === "C") valorCentavos = Math.abs(valorCentavos);
+  if (dc === "D") {
+    valorCentavos = -Math.abs(valorCentavos);
+  } else if (dc === "C") {
+    valorCentavos = Math.abs(valorCentavos);
+  }
   if (valorCentavos === 0) return [];
 
   // filtros básicos para evitar pegar cabeçalho
   const low = desc.toLowerCase();
   if (low.startsWith("data") && low.includes("valor")) return [];
   if (low.includes("extrato banc")) return [];
+  if (/rende\s*f[aá]cil/i.test(desc)) return [];
 
   return [
     {
@@ -316,8 +388,11 @@ function isLinhaLancamentoExtratoSimples(line) {
   // não pode ser CAIXA (se tiver nr mov, deixa o CAIXA pegar)
   if (/^\d{2}\/\d{2}\/\d{4}\s*\d{5,7}\b/.test(t)) return false;
 
-  // tem que ter valor e D/C no fim
-  if (!/(\d{1,3}(?:\.\d{3})*,\d{2}|\d+,\d{2})\s+[DC]\b/i.test(t)) return false;
+  // aceita valor com D/C, valor assinado ou valor simples no fim da linha
+  const hasValorComDc = /([+-]?(?:\d{1,3}(?:\.\d{3})*,\d{2}|\d+,\d{2}|\d+\.\d{2}))\s+[DC]\b/i.test(t);
+  const hasValorAssinado = /[+-]\d+(?:[.,]\d{2})\b/.test(t);
+  const hasValorSimplesFinal = /(?:\d{1,3}(?:\.\d{3})*,\d{2}|\d+,\d{2}|\d+\.\d{2})\s*$/.test(t);
+  if (!hasValorComDc && !hasValorAssinado && !hasValorSimplesFinal) return false;
 
   const low = t.toLowerCase();
   if (low.startsWith("extrato")) return false;

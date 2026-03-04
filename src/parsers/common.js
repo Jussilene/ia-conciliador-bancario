@@ -14,15 +14,34 @@ export function isoToDateBR(iso) {
 }
 
 export function parseValorBRToCentavos(valorBR) {
-  // "1.234,56" => 123456
-  const s = String(valorBR || "")
-    .replace(/\s/g, "")
-    .replace(/[R$]/g, "")
-    .replace(/\./g, "")
-    .replace(",", ".");
-  const n = Number(s);
+  // Aceita "1.234,56", "1234,56", "1234.56", "-250.00", "1.234"
+  let raw = String(valorBR || "").trim();
+  if (!raw) return null;
+
+  raw = raw.replace(/\s/g, "").replace(/[R$]/g, "");
+  const negativo = raw.startsWith("-");
+  raw = raw.replace(/^[+-]/, "");
+
+  let normalized = raw;
+  const hasComma = raw.includes(",");
+  const hasDot = raw.includes(".");
+
+  if (hasComma) {
+    normalized = raw.replace(/\./g, "").replace(",", ".");
+  } else if (hasDot) {
+    const parts = raw.split(".");
+    if (parts.length > 2) {
+      normalized = raw.replace(/\./g, "");
+    } else {
+      const dec = parts[1] || "";
+      normalized = dec.length === 2 ? raw : raw.replace(/\./g, "");
+    }
+  }
+
+  const n = Number(normalized);
   if (!Number.isFinite(n)) return null;
-  return Math.round(n * 100);
+  const cents = Math.round(n * 100);
+  return negativo ? -Math.abs(cents) : cents;
 }
 
 export function centavosToValorBR(c) {

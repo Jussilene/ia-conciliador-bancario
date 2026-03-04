@@ -358,6 +358,25 @@ function safeName(name = "arquivo") {
   return name.replace(/[^\w.\-()\s]/g, "").replace(/\s+/g, "_").slice(0, 160);
 }
 
+function parseStoredPaths(raw) {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw.filter(Boolean);
+
+  const s = String(raw).trim();
+  if (!s) return [];
+
+  if (s.startsWith("[")) {
+    try {
+      const arr = JSON.parse(s);
+      return Array.isArray(arr) ? arr.filter(Boolean) : [s];
+    } catch {
+      return [s];
+    }
+  }
+
+  return [s];
+}
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
   filename: (req, file, cb) => {
@@ -698,7 +717,11 @@ app.delete("/api/reconciliations/:id", requireApiAuth, (req, res) => {
       fs.unlinkSync(excelPath);
     }
 
-    const filesToDelete = [item.extrato_saved_path, item.controle_saved_path, item.duplicatas_saved_path].filter(Boolean);
+    const filesToDelete = [
+      ...parseStoredPaths(item.extrato_saved_path),
+      ...parseStoredPaths(item.controle_saved_path),
+      ...parseStoredPaths(item.duplicatas_saved_path),
+    ];
 
     for (const f of filesToDelete) {
       try {
@@ -724,22 +747,22 @@ app.post(
   "/conciliar",
   requireAuth,
   upload.fields([
-    { name: "extrato", maxCount: 1 },
-    { name: "controle", maxCount: 1 },
-    { name: "duplicatas", maxCount: 1 },
+    { name: "extrato", maxCount: 20 },
+    { name: "controle", maxCount: 20 },
+    { name: "duplicatas", maxCount: 20 },
   ]),
   async (req, res) => {
     try {
-      const extratoFile = req.files?.extrato?.[0] || null;
-      const controleFile = req.files?.controle?.[0] || null;
-      const duplicatasFile = req.files?.duplicatas?.[0] || null;
+      const extratoFiles = req.files?.extrato || [];
+      const controleFiles = req.files?.controle || [];
+      const duplicatasFiles = req.files?.duplicatas || [];
 
       const nomeConcil = (req.body?.nome_conciliacao || "").toString().trim();
 
       const dataInicial = (req.body?.data_inicial || "").toString().trim();
       const dataFinal = (req.body?.data_final || "").toString().trim();
 
-      if (!extratoFile || !controleFile) {
+      if (!extratoFiles.length || !controleFiles.length) {
         return res.status(400).send(`
           <!DOCTYPE html>
           <html lang="pt-BR">
@@ -825,10 +848,10 @@ app.post(
         `);
       }
 
-      console.log("📎 Extrato (DOC1):", extratoFile.path, "| original:", extratoFile.originalname);
-      console.log("📎 Controle (DOC2):", controleFile.path, "| original:", controleFile.originalname);
-      if (duplicatasFile) {
-        console.log("📎 Duplicatas (DOC3):", duplicatasFile.path, "| original:", duplicatasFile.originalname);
+      console.log("📎 Extrato(s) DOC1:", extratoFiles.length, extratoFiles.map((f) => f.originalname));
+      console.log("📎 Controle(s) DOC2:", controleFiles.length, controleFiles.map((f) => f.originalname));
+      if (duplicatasFiles.length) {
+        console.log("📎 Duplicatas(s) DOC3:", duplicatasFiles.length, duplicatasFiles.map((f) => f.originalname));
       } else {
         console.log("ℹ️ Nenhum arquivo de duplicatas enviado.");
       }
@@ -836,7 +859,7 @@ app.post(
       if (dataInicial || dataFinal) {
         console.log("🗓️ Período recebido do form:", { dataInicial, dataFinal });
       } else {
-        console.log("🗓️ Período não informado. Usará período automático do extrato (DOC1).");
+        console.log("🗓️ Período não informado. Será considerado todo o intervalo dos documentos.");
       }
 
       const finalName =
@@ -861,9 +884,9 @@ app.post(
         volume_doc1_abs_centavos,
         volume_doc1_liquido_centavos,
       } = await rodarConciliacao(
-        extratoFile.path,
-        controleFile.path,
-        duplicatasFile ? duplicatasFile.path : undefined,
+        extratoFiles.map((f) => f.path),
+        controleFiles.map((f) => f.path),
+        duplicatasFiles.map((f) => f.path),
         {
           outputFileName: uniqueExcelName,
           dataInicial: dataInicial || undefined,
@@ -875,12 +898,14 @@ app.post(
 
       const created = createReconciliation({
         name: finalName,
-        extrato_original: extratoFile.originalname,
-        controle_original: controleFile.originalname,
-        duplicatas_original: duplicatasFile?.originalname || null,
-        extrato_saved_path: extratoFile.path,
-        controle_saved_path: controleFile.path,
-        duplicatas_saved_path: duplicatasFile?.path || null,
+        extrato_original: extratoFiles.map((f) => f.originalname).join(" | "),
+        controle_original: controleFiles.map((f) => f.originalname).join(" | "),
+        duplicatas_original: duplicatasFiles.map((f) => f.originalname).join(" | ") || null,
+        extrato_saved_path: JSON.stringify(extratoFiles.map((f) => f.path)),
+        controle_saved_path: JSON.stringify(controleFiles.map((f) => f.path)),
+        duplicatas_saved_path: duplicatasFiles.length
+          ? JSON.stringify(duplicatasFiles.map((f) => f.path))
+          : null,
         output_filename: fileName,
         divergences_count: totalDivergencias,
         has_divergences: temDivergencias ? 1 : 0,
@@ -1061,8 +1086,8 @@ app.post(
               <p>
                 A IA comparou o <strong>extrato bancário</strong> com o
                 <strong>controle interno</strong>${
-                  duplicatasFile
-                    ? " e usou o arquivo de <strong>duplicatas</strong> para enriquecer as descrições."
+                  duplicatasFiles.length
+                    ? " e recebeu também o arquivo de <strong>duplicatas</strong> no processo."
                     : "."
                 }
               </p>

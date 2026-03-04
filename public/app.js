@@ -53,6 +53,19 @@ function escapeHtml(str = "") {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
+function iconSvg(name, classes = "w-4 h-4") {
+  const map = {
+    download:
+      '<path d="M12 3v10m0 0 4-4m-4 4-4-4M5 15v4h14v-4" stroke-linecap="round" stroke-linejoin="round"/>',
+    eye: '<path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="3"/>',
+    trash:
+      '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" stroke-linecap="round" stroke-linejoin="round"/>',
+    plus: '<path d="M12 5v14M5 12h14" stroke-linecap="round" stroke-linejoin="round"/>',
+    file: '<path d="M7 3h7l5 5v13H7z" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 3v5h5" stroke-linecap="round" stroke-linejoin="round"/>',
+  };
+  const body = map[name] || map.download;
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="${classes}" aria-hidden="true">${body}</svg>`;
+}
 
 async function loadMe() {
   try {
@@ -116,15 +129,21 @@ function openSettingsModal() {
             <p class="text-xs text-slate-500">Configurações</p>
             <h3 class="text-xl font-extrabold">Gerencie seus dados e acessos</h3>
           </div>
-          <button id="closeSettings" class="text-slate-500 hover:text-slate-900 text-2xl">×</button>
+          <button id="closeSettings" class="text-slate-500 hover:text-slate-900 text-2xl">x</button>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-4 h-[calc(100vh-81px)]">
           <div class="p-4 border-r border-slate-200 overflow-auto">
-            <button id="tabConta" class="w-full text-left px-4 py-3 rounded-xl hover:bg-slate-50 font-bold">👤 Minha conta</button>
+            <button id="tabConta" class="w-full text-left px-4 py-3 rounded-xl hover:bg-slate-50 font-bold inline-flex items-center gap-2">
+              <span class="text-violet-600">👤</span>
+              <span>Minha conta</span>
+            </button>
             ${
               isAdmin
-                ? `<button id="tabUsers" class="mt-2 w-full text-left px-4 py-3 rounded-xl hover:bg-slate-50 font-bold">🧩 Usuários</button>`
+                ? `<button id="tabUsers" class="mt-2 w-full text-left px-4 py-3 rounded-xl hover:bg-slate-50 font-bold inline-flex items-center gap-2">
+                    <span class="text-emerald-500">🧩</span>
+                    <span>Usuarios</span>
+                  </button>`
                 : ""
             }
           </div>
@@ -161,7 +180,7 @@ function openSettingsModal() {
                     <h4 class="font-extrabold text-lg">Usuários</h4>
                     <p class="text-sm text-slate-500 mt-1">Criar, desativar e resetar senha.</p>
                   </div>
-                  <p id="usersCount" class="text-xs text-slate-500">—</p>
+                  <p id="usersCount" class="text-xs text-slate-500">-</p>
                 </div>
 
                 <div class="mt-5 grid gap-5 lg:grid-cols-2">
@@ -624,14 +643,14 @@ async function loadDashboard() {
                   <div class="min-w-0">
                     <p class="font-bold text-sm truncate">${escapeHtml(it.name)}</p>
                     <p class="text-xs text-slate-500">
-                      ${escapeHtml(it.created_at)} • ${it.divergences_count} divergência(s)
+                      ${escapeHtml(it.created_at)} - ${it.divergences_count} divergencia(s)
                     </p>
                   </div>
                   <div class="flex items-center gap-2 shrink-0">
-                    <a class="text-sm font-bold text-fluxo-brand hover:text-fluxo-brand2"
-                       href="/download/${it.id}" title="Baixar Excel">⬇️</a>
-                    <button class="text-sm font-bold text-red-600 hover:text-red-700"
-                            data-del="${it.id}" title="Remover">🗑️</button>
+                    <a class="text-sm font-bold text-fluxo-brand hover:text-fluxo-brand2 inline-flex"
+                       href="/download/${it.id}" title="Baixar Excel">${iconSvg("download")}</a>
+                    <button class="text-sm font-bold text-red-600 hover:text-red-700 inline-flex"
+                            data-del="${it.id}" title="Remover">${iconSvg("trash")}</button>
                   </div>
                 </div>
               `
@@ -679,7 +698,7 @@ async function loadReconciliations() {
 
     if (!items.length) {
       container.innerHTML = `
-        <div class="text-6xl text-slate-300">📄</div>
+        <div class="text-slate-300 inline-flex">${iconSvg("file", "w-12 h-12")}</div>
         <p class="text-lg font-bold mt-4">Nenhuma conciliação ainda</p>
         <p class="text-slate-500 mt-1">Importe seus dados para começar</p>
         <button
@@ -687,7 +706,7 @@ async function loadReconciliations() {
           type="button"
           data-go="importar"
         >
-          <span class="text-lg">＋</span>
+          <span class="inline-flex">${iconSvg("plus")}</span>
           <span class="font-semibold">Importar Dados</span>
         </button>
       `;
@@ -708,7 +727,7 @@ async function loadReconciliations() {
           type="button"
           data-go="importar"
         >
-          <span class="text-lg">＋</span>
+          <span class="inline-flex">${iconSvg("plus")}</span>
           <span class="font-semibold">Nova Conciliação</span>
         </button>
       </div>
@@ -737,9 +756,9 @@ async function loadReconciliations() {
                 </td>
                 <td class="py-3">
                   <div class="flex items-center justify-end gap-3">
-                    <a href="/download/${it.id}" title="Baixar Excel" class="hover:opacity-80">⬇️</a>
-                    <button data-open="${it.id}" title="Ver detalhes" class="hover:opacity-80">👁️</button>
-                    <button data-del="${it.id}" title="Remover" class="hover:opacity-80">🗑️</button>
+                    <a href="/download/${it.id}" title="Baixar Excel" class="text-slate-600 hover:text-slate-900 inline-flex">${iconSvg("download")}</a>
+                    <button data-open="${it.id}" title="Ver detalhes" class="text-slate-600 hover:text-slate-900 inline-flex">${iconSvg("eye")}</button>
+                    <button data-del="${it.id}" title="Remover" class="text-red-600 hover:text-red-700 inline-flex">${iconSvg("trash")}</button>
                   </div>
                 </td>
               </tr>
@@ -826,7 +845,7 @@ async function openDetailsModal(id) {
               <p class="text-xs text-slate-500">Detalhes da conciliação</p>
               <h3 class="text-xl font-extrabold">${escapeHtml(it.name)}</h3>
               <p class="text-sm text-slate-500 mt-1">
-                ${escapeHtml(it.created_at)} • ${it.divergences_count} divergência(s)
+                ${escapeHtml(it.created_at)} - ${it.divergences_count} divergencia(s)
               </p>
               <p class="text-xs text-slate-500 mt-2">
                 DOC1: ${escapeHtml(it.extrato_original || "-")}<br/>
@@ -834,13 +853,13 @@ async function openDetailsModal(id) {
                 DOC3: ${escapeHtml(it.duplicatas_original || "não enviado")}
               </p>
             </div>
-            <button id="closeDetails" class="text-slate-500 hover:text-slate-900 text-xl">×</button>
+            <button id="closeDetails" class="text-slate-500 hover:text-slate-900 text-xl">x</button>
           </div>
 
           <div class="mt-4 flex items-center justify-end gap-3">
             <a class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-fluxo-brand text-white hover:bg-fluxo-brand2 shadow"
                href="/download/${it.id}">
-              ⬇️ Baixar Excel
+              ${iconSvg("download")} Baixar Excel
             </a>
           </div>
 

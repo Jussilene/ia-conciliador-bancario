@@ -1,9 +1,10 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <title>Concilia • IA Conciliador Bancário</title>
+    <title>Concilia - IA Conciliador Bancario</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="/assets/fivecon-favicon-white.png" />
 
     <!-- Tailwind CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -69,16 +70,12 @@
           class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50"
           aria-label="Abrir menu"
         >
-          <span class="text-lg">☰</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M4 7h16M4 12h16M4 17h16" stroke-linecap="round" /></svg>
           <span class="text-sm font-semibold">Menu</span>
         </button>
 
         <div class="flex items-center gap-2">
-          <div
-            class="w-9 h-9 rounded-xl bg-gradient-to-br from-fluxo-brand to-fluxo-brand2 text-white flex items-center justify-center font-bold shadow"
-          >
-            ⇄
-          </div>
+          <img src="/assets/fivecon-logo.png" alt="Concilia" class="w-9 h-9 rounded-lg object-contain bg-white border border-slate-200 p-1" />
           <div class="leading-tight">
             <p class="text-sm font-bold">Concilia</p>
             <p class="text-[11px] text-slate-500">Conciliação Inteligente</p>
@@ -101,18 +98,8 @@
       >
         <div class="h-full flex flex-col">
           <!-- Brand -->
-          <div class="px-5 py-5 border-b border-white/10">
-            <div class="flex items-center gap-3">
-              <div
-                class="w-12 h-12 rounded-2xl bg-gradient-to-br from-fluxo-brand to-fluxo-brand2 text-white flex items-center justify-center font-black text-lg shadow"
-              >
-                ⇄
-              </div>
-              <div class="leading-tight">
-                <p class="text-lg font-extrabold">Concilia</p>
-                <p class="text-xs text-fluxo-muted">Conciliação Inteligente</p>
-              </div>
-            </div>
+          <div class="px-5 py-5 border-b border-white/10 flex justify-center">
+            <img src="/assets/fivecon-logo.png" alt="Concilia" class="h-16 w-auto object-contain" />
           </div>
 
           <!-- Nav -->
@@ -123,10 +110,10 @@
               data-view="dashboard"
             >
               <span class="flex items-center gap-3">
-                <span class="text-xl">▦</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M4 4h7v7H4zM13 4h7v5h-7zM13 11h7v9h-7zM4 13h7v7H4z" /></svg>
                 Dashboard
               </span>
-              <span class="text-white/50">›</span>
+              <span class="text-white/50">></span>
             </button>
 
             <button
@@ -135,27 +122,27 @@
               data-view="conciliacoes"
             >
               <span class="flex items-center gap-3">
-                <span class="text-xl">⧉</span>
-                Importar Dados
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M5 5h14v14H5zM8 9h8M8 13h8M8 17h5" stroke-linecap="round" /></svg>
+                Conciliações
               </span>
-              <span class="text-white/50">›</span>
+              <span class="text-white/50">></span>
             </button>
 
-            <!-- IMPORTAR DADOS POR ÚLTIMO -->
+            <!-- IMPORTAR DADOS POR ULTIMO -->
             <button
               class="nav-btn w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-semibold
                      bg-white/0 hover:bg-white/10 border border-transparent hover:border-white/10"
               data-view="importar"
             >
               <span class="flex items-center gap-3">
-                <span class="text-xl">⇪</span>
-                Conciliações
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                Importar Dados
               </span>
-              <span class="text-white/50">›</span>
+              <span class="text-white/50">></span>
             </button>
           </nav>
 
-          <!-- ✅ Footer removido (não tem mais botão Sair aqui) -->
+          <!-- Footer removido (nao tem mais botao Sair aqui) -->
         </div>
       </aside>
 
@@ -177,7 +164,7 @@
               </p>
             </div>
 
-            <!-- ✅ Dropdown do usuário -->
+            <!-- Dropdown do usuario -->
             <div class="flex items-center gap-3">
               <div class="relative" id="userMenuWrap">
                 <button
@@ -186,7 +173,7 @@
                   type="button"
                 >
                   <span class="text-xs text-slate-500">USUÁRIO</span>
-                  <span id="userNameTop" class="font-bold">—</span>
+                  <span id="userNameTop" class="font-bold">-</span>
                   <span class="text-slate-500">☰</span>
                 </button>
 
@@ -195,21 +182,22 @@
                   class="hidden absolute right-0 mt-2 w-64 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden"
                 >
                   <div class="p-4 border-b border-slate-200">
-                    <p id="userNameCard" class="font-extrabold">—</p>
-                    <p id="userEmailCard" class="text-sm text-slate-500">—</p>
+                    <p id="userNameCard" class="font-extrabold">-</p>
+                    <p id="userEmailCard" class="text-sm text-slate-500">-</p>
                     <p
                       id="userRoleCard"
                       class="text-xs mt-1 inline-flex px-2 py-0.5 rounded-full border border-slate-200"
                     >
-                      —
+                      -
                     </p>
                   </div>
 
-                  <button id="openSettings" class="w-full text-left px-4 py-3 hover:bg-slate-50">
-                    ⚙️ Configurações
+                  <button id="openSettings" class="w-full text-left px-4 py-3 hover:bg-slate-50 inline-flex items-center gap-2">
+                    <span class="text-violet-400">⚙️</span>
+                    <span>Configuracoes</span>
                   </button>
 
-                  <!-- ✅ AJUSTE: botão Sair azul + ícone setinha (tipo FluxoNF) -->
+                  <!-- AJUSTE: botao Sair azul + icone setinha (tipo FluxoNF) -->
                   <button
                     id="logoutBtn"
                     class="w-full text-left px-4 py-3 hover:bg-blue-50 text-fluxo-blue font-bold flex items-center gap-2"
@@ -242,12 +230,14 @@
               <div class="bg-white rounded-2xl shadow-soft border border-slate-200 p-5">
                 <div class="flex items-start justify-between">
                   <div>
-                    <p class="text-xs font-bold tracking-wide text-slate-500">TRANSAÇÕES</p>
+                    <p class="text-xs font-bold tracking-wide text-slate-500">TRANSACOES</p>
                     <p id="kpiTransacoes" class="text-4xl font-extrabold mt-2">0</p>
                     <p class="text-sm text-fluxo-blue font-semibold mt-1">Total importadas</p>
                   </div>
                   <div class="w-14 h-14 rounded-2xl bg-blue-500 text-white flex items-center justify-center text-2xl shadow">
-                    ⇄
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-7 h-7">
+                      <path d="M4 8h16M16 4l4 4-4 4M20 16H4M8 12l-4 4 4 4" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
                   </div>
                 </div>
                 <div class="h-1 mt-5 rounded-full bg-blue-500/90"></div>
@@ -261,7 +251,9 @@
                     <p class="text-sm text-fluxo-brand font-semibold mt-1">Matches confirmados</p>
                   </div>
                   <div class="w-14 h-14 rounded-2xl bg-fluxo-brand text-white flex items-center justify-center text-2xl shadow">
-                    ✓
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-7 h-7">
+                      <path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
                   </div>
                 </div>
                 <div class="h-1 mt-5 rounded-full bg-fluxo-brand/90"></div>
@@ -270,7 +262,7 @@
               <div class="bg-white rounded-2xl shadow-soft border border-slate-200 p-5">
                 <div class="flex items-start justify-between">
                   <div>
-                    <p class="text-xs font-bold tracking-wide text-slate-500">DIVERGÊNCIAS</p>
+                    <p class="text-xs font-bold tracking-wide text-slate-500">DIVERGENCIAS</p>
                     <p id="kpiDivergencias" class="text-4xl font-extrabold mt-2">0</p>
                     <p class="text-sm text-red-600 font-semibold mt-1">Requer revisão</p>
                   </div>
@@ -289,7 +281,10 @@
                     <p class="text-sm text-amber-600 font-semibold mt-1">Aguardando análise</p>
                   </div>
                   <div class="w-14 h-14 rounded-2xl bg-amber-500 text-white flex items-center justify-center text-2xl shadow">
-                    ⏱
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-7 h-7">
+                      <circle cx="12" cy="13" r="7"></circle>
+                      <path d="M12 10v4l2 2M9 3h6" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
                   </div>
                 </div>
                 <div class="h-1 mt-5 rounded-full bg-amber-500/90"></div>
@@ -299,13 +294,13 @@
             <div class="grid gap-5 lg:grid-cols-3 mt-6">
               <div class="lg:col-span-2 bg-white rounded-2xl shadow-soft border border-slate-200 p-6">
                 <div class="flex items-center justify-between">
-                  <h2 class="text-lg font-extrabold">Conciliações Recentes</h2>
+                  <h2 class="text-lg font-extrabold">Importar Dados Recentes</h2>
                   <button
                     class="text-sm font-bold text-fluxo-brand hover:text-fluxo-brand2"
                     type="button"
                     data-go="conciliacoes"
                   >
-                    Ver todas →
+                    Ver todas >
                   </button>
                 </div>
 
@@ -332,12 +327,14 @@
                 <div class="bg-white rounded-2xl shadow-soft border border-slate-200 p-6">
                   <div class="flex items-start justify-between">
                     <div>
-                      <p class="text-xs font-bold tracking-wide text-slate-500">CONCILIAÇÕES</p>
+                      <p class="text-xs font-bold tracking-wide text-slate-500">CONCILIACOES</p>
                       <p class="text-4xl font-extrabold mt-2">0</p>
                       <p class="text-sm text-fluxo-brand font-semibold mt-1">Realizadas</p>
                     </div>
                     <div class="w-14 h-14 rounded-2xl bg-fluxo-brand text-white flex items-center justify-center text-2xl shadow">
-                      ↗
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-7 h-7">
+                        <path d="M7 17 17 7M9 7h8v8" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
                     </div>
                   </div>
                   <div class="h-1 mt-5 rounded-full bg-fluxo-brand/90"></div>
@@ -346,22 +343,15 @@
             </div>
           </section>
 
-          <!-- CONCILIAÇÕES (REMOVIDO TÍTULO DUPLICADO) -->
+          <!-- CONCILIACOES (REMOVIDO TITULO DUPLICADO) -->
           <section id="view-conciliacoes" class="view hidden">
-            <!-- só ações (o título/subtítulo vem do topbar) -->
-            <div class="flex items-center justify-end">
-              <button
-                class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-fluxo-brand text-white hover:bg-fluxo-brand2 shadow"
-                type="button"
-                data-go="importar"
-              >
-                <span class="text-lg">＋</span>
-                <span class="font-semibold">Nova Conciliação</span>
-              </button>
-            </div>
-
-            <div class="mt-6 bg-white rounded-2xl shadow-soft border border-slate-200 p-10 text-center">
-              <div class="text-6xl text-slate-300">📄</div>
+            <div class="mt-6 bg-white rounded-2xl shadow-soft border border-slate-200 p-10 text-center" style="margin-top: 0;">
+              <div class="text-slate-300 inline-flex">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-14 h-14">
+                  <path d="M7 3h7l5 5v13H7z" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M14 3v5h5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
               <p class="text-lg font-bold mt-4">Nenhuma conciliação ainda</p>
               <p class="text-slate-500 mt-1">Importe seus dados para começar</p>
 
@@ -370,8 +360,10 @@
                 type="button"
                 data-go="importar"
               >
-                <span class="text-lg">＋</span>
-                <span class="font-semibold">Importar Dados</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5">
+                  <path d="M12 5v14M5 12h14" stroke-linecap="round" />
+                </svg>
+                <span class="font-semibold">Conciliações</span>
               </button>
             </div>
           </section>
@@ -397,7 +389,7 @@
                 />
               </div>
 
-              <!-- ✅ NOVO: Período da conciliação (opcional) -->
+              <!-- NOVO: Periodo da conciliacao (opcional) -->
               <div class="bg-white rounded-2xl shadow-soft border border-slate-200 p-6">
                 <div class="flex items-start justify-between gap-4 flex-col sm:flex-row">
                   <div>
@@ -436,8 +428,11 @@
               <div class="grid gap-6 lg:grid-cols-2">
                 <div class="bg-white rounded-2xl shadow-soft border border-slate-200 p-6">
                   <div class="border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center">
-                    <div class="mx-auto w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center text-3xl">
-                      🧾
+                    <div class="mx-auto w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-500">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-8 h-8">
+                        <path d="M7 3h7l5 5v13H7z" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M14 3v5h5M9 13h6M9 17h6" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
                     </div>
                     <h3 class="text-lg font-extrabold mt-4">Extrato Bancário</h3>
                     <p class="text-sm text-slate-500 mt-1">
@@ -447,7 +442,9 @@
                     <label
                       class="mt-5 inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-slate-900 text-white hover:bg-slate-800 cursor-pointer"
                     >
-                      <span class="text-lg">⇪</span>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5">
+                        <path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
                       <span class="font-semibold">Selecionar arquivo(s)</span>
                       <input
                         class="hidden"
@@ -468,8 +465,11 @@
 
                 <div class="bg-white rounded-2xl shadow-soft border border-slate-200 p-6">
                   <div class="border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center">
-                    <div class="mx-auto w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center text-3xl">
-                      🧾
+                    <div class="mx-auto w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-500">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-8 h-8">
+                        <path d="M7 3h7l5 5v13H7z" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M14 3v5h5M9 13h6M9 17h6" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
                     </div>
                     <h3 class="text-lg font-extrabold mt-4">Lançamentos do Sistema</h3>
                     <p class="text-sm text-slate-500 mt-1">
@@ -479,7 +479,9 @@
                     <label
                       class="mt-5 inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-slate-900 text-white hover:bg-slate-800 cursor-pointer"
                     >
-                      <span class="text-lg">⇪</span>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5">
+                        <path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
                       <span class="font-semibold">Selecionar arquivo(s)</span>
                       <input
                         class="hidden"
@@ -511,7 +513,9 @@
                   <label
                     class="inline-flex items-center gap-2 px-5 py-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer"
                   >
-                    <span class="text-lg">⇪</span>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5">
+                      <path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
                     <span class="font-semibold">Selecionar</span>
                     <input
                       class="hidden"
@@ -534,7 +538,9 @@
                   type="submit"
                   class="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-fluxo-brand text-white hover:bg-fluxo-brand2 shadow"
                 >
-                  <span class="text-lg">⚙️</span>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5">
+                    <path d="M5 12h14M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
                   <span class="font-semibold">Iniciar conciliação</span>
                 </button>
 
@@ -549,7 +555,7 @@
       </main>
     </div>
 
-    <!-- ✅ BOTÃO FLUTUANTE DO CHAT (APARECE EM QUALQUER VIEW) -->
+    <!-- BOTAO FLUTUANTE DO CHAT (APARECE EM QUALQUER VIEW) -->
     <button
       id="chatToggle"
       class="fixed bottom-5 right-5 z-[60]
@@ -561,7 +567,11 @@
       aria-label="Abrir chat IA"
       type="button"
     >
-      <span class="text-lg">💬</span>
+      <span class="inline-flex items-center justify-center">
+        <svg viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4">
+          <path d="M4 5a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v7a4 4 0 0 1-4 4h-5.5L7 19.5V16H8a4 4 0 0 1-4-4V5z"/>
+        </svg>
+      </span>
       <span class="text-sm font-semibold hidden sm:inline">IA Conciliador</span>
     </button>
 
@@ -593,7 +603,7 @@
             id="chatClose"
             class="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-slate-100 rounded-full hover:bg-slate-800 text-lg leading-none"
           >
-            ×
+            x
           </button>
         </div>
 
@@ -614,7 +624,7 @@
               id="chatSend"
               class="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs sm:text-sm font-semibold"
             >
-              ➤
+              >
             </button>
           </div>
 
@@ -623,19 +633,19 @@
               class="chat-quick text-[10px] sm:text-xs px-2.5 py-1 rounded-full bg-slate-900 border border-slate-700 hover:border-emerald-500"
               data-key="como_enviar"
             >
-              Como enviar os PDFs?
+              Como enviar os PDFs
             </button>
             <button
               class="chat-quick text-[10px] sm:text-xs px-2.5 py-1 rounded-full bg-slate-900 border border-slate-700 hover:border-emerald-500"
               data-key="resultado"
             >
-              O que eu recebo?
+              O que eu recebo
             </button>
             <button
               class="chat-quick text-[10px] sm:text-xs px-2.5 py-1 rounded-full bg-slate-900 border border-slate-700 hover:border-emerald-500"
               data-key="duplicatas"
             >
-              E o arquivo de duplicatas?
+              E o arquivo de duplicatas
             </button>
             <button
               class="chat-quick text-[10px] sm:text-xs px-2.5 py-1 rounded-full bg-slate-900 border border-slate-700 hover:border-emerald-500"
@@ -654,7 +664,7 @@
       </div>
     </div>
 
-    <!-- ✅ Root do modal Configurações/Admin -->
+    <!-- Root do modal Configuracoes/Admin -->
     <div id="settingsModalRoot"></div>
 
     <!-- JS do layout -->
